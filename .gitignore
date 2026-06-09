@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# === Custom additions for Finding Keepers ===
+
+# Environment variables (never commit these)
+.env.local
+.env
+
+# Google Service Account (never commit this file)
+service-account.json
+
+# Supabase
+supabase/.temp/
