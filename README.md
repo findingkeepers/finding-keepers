@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Finding Keepers
 
-## Getting Started
+A verified marriage matching platform for HKID holders in Hong Kong. Built with a strong focus on privacy, safety, and manual verification by admins.
 
-First, run the development server:
+## Overview
+
+Finding Keepers allows verified users to create profiles and request matches. All matches are personally facilitated by admins to ensure trust and safety. The platform is currently in its foundational stage.
+
+## Tech Stack
+
+- **Frontend**: Next.js 16 (App Router) + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Backend & Database**: Supabase (PostgreSQL + Authentication)
+- **Form Management**: react-hook-form + Zod
+- **Notifications**: Sonner
+- **Deployment**: Vercel
+
+## Current Features (MVP)
+
+- User registration with basic information
+- Email verification
+- Login system
+- Protected dashboard routes
+- Clean and professional UI
+
+## Installation
+
+### 1. Clone the repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/findingkeepers/finding-keepers.git
+cd finding-keepers
+```
+### 2. Install dependencies
+```bash
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Set up environment variables
+Create a file named .env.local in the root folder and add the following:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+envNEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Run the development server
+```bash
+npm run dev
+```
+Open http://localhost:3000 in your browser.
 
-## Learn More
+## Project Structure
+textfinding-keepers/
+├── app/                    # Main application pages
+├── src/
+│   ├── app/(auth)/         # Login and Register pages
+│   ├── lib/                # Supabase client configuration
+│   └── components/         # Reusable UI components
+├── middleware.ts           # Route protection
+├── README.md
+├── package.json
+└── .env.local              # Environment variables (not committed)
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
+| Variable | Description | Required |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Public Key | Yes |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
+This project is ready to be deployed on Vercel.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Recommended Steps:
+1. Push your code to GitHub
+2. Import the repository on Vercel
+3. Add the environment variables in the Vercel dashboard
+4. Deploy
 
-## Deploy on Vercel
+## License
+This is a private project intended for company use only.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
