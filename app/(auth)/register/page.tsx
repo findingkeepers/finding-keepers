@@ -40,22 +40,27 @@ export default function RegisterPage() {
     }
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        email,
-        full_name,
-        gender,
-        phone,
-        is_permanent_resident,
-      });
+      // Create profile after successful registration
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: email,
+          full_name: full_name,
+          gender: gender,
+          phone: phone || '',
+          is_permanent_resident: is_permanent_resident,
+          verification_status: 'unverified'
+        });
 
       if (profileError) {
-        toast.error("Failed to create profile");
-      } else {
-        toast.success("Account created! Please check your email to verify.");
-        router.push('/login');
+        console.error("Profile creation error:", profileError);
       }
+
+      toast.success("Account created successfully!");
+      router.push('/login');
     }
+
     setLoading(false);
   };
 
