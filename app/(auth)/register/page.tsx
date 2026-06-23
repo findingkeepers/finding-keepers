@@ -13,56 +13,46 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const confirmPassword = formData.get('confirmPassword') as string;
-    const full_name = formData.get('full_name') as string;
-    const gender = formData.get('gender') as string;
-    const phone = formData.get('phone') as string;
-    const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
+  const formData = new FormData(e.currentTarget);
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const confirmPassword = formData.get('confirmPassword') as string;
+  const full_name = formData.get('full_name') as string;
+  const gender = formData.get('gender') as string;
+  const phone = formData.get('phone') as string;
+  const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
 
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signUp({ email, password });
-
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      // Create profile after successful registration
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          full_name: full_name,
-          gender: gender,
-          phone: phone || '',
-          is_permanent_resident: is_permanent_resident,
-          verification_status: 'unverified'
-        });
-
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-      }
-
-      toast.success("Account created successfully!");
-      router.push('/login');
-    }
-
+  if (password !== confirmPassword) {
+    toast.error("Passwords do not match");
     setLoading(false);
-  };
+    return;
+  }
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: full_name,
+        gender: gender,
+        phone: phone || '',
+        is_permanent_resident: is_permanent_resident,
+      }
+    }
+  });
+
+  if (error) {
+    toast.error(error.message);
+  } else {
+    toast.success("Account created successfully! Please check your email to confirm.");
+    router.push('/login');
+  }
+
+  setLoading(false);
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
