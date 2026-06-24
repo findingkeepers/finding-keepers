@@ -11,9 +11,11 @@ import { FilterBar } from '@/components/layout/FilterBar';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ProfileCard } from '@/components/browse/ProfileCard';
+import { getOppositeProfileGender, normalizeToProfileGender } from '@/lib/gender';
 
 interface CV {
   id: string;
+  user_id: string;
   short_id: string;
   photo_url: string | null;
   data: Record<string, string>;
@@ -48,16 +50,26 @@ export default function BrowsePage() {
         return;
       }
 
-      const oppositeGender = profile.gender.toLowerCase() === 'male' ? 'female' : 'male';
+      const oppositeGender = getOppositeProfileGender(profile.gender);
 
-      const { data: cvData, error } = await supabase
-        .from('cvs')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [{ data: cvData, error }, { data: verifiedProfiles }] = await Promise.all([
+        supabase.from('cvs').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('profiles')
+          .select('id')
+          .eq('verification_status', 'verified'),
+      ]);
 
-      if (!error && cvData) {
+      if (!error && cvData && oppositeGender) {
+        const verifiedUserIds = new Set(
+          (verifiedProfiles ?? []).map((p) => p.id)
+        );
+
         const filtered = cvData.filter((cv: CV) => {
-          const cvGender = cv.data?.gender?.toLowerCase();
+          if (cv.user_id === user.id) return false;
+          if (!verifiedUserIds.has(cv.user_id)) return false;
+
+          const cvGender = normalizeToProfileGender(cv.data?.gender);
           return cvGender === oppositeGender;
         });
 

@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { toast } from 'sonner';
 import { requestMatch } from '@/app/actions/match';
+import { gendersAreOpposite } from '@/lib/gender';
 import { User } from 'lucide-react';
 
 export default function ViewProfilePage() {
@@ -146,8 +147,7 @@ export default function ViewProfilePage() {
   }
 
   const data = cv.data || {};
-  const isOppositeGender = userGender && data.gender &&
-    userGender.toLowerCase() !== data.gender.toLowerCase();
+  const isOppositeGender = gendersAreOpposite(userGender, data.gender);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">

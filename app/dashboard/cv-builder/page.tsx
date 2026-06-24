@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
 import { supabase } from '@/lib/supabase';
+import { profileGenderToCVGender } from '@/lib/gender';
 import { useRouter } from 'next/navigation';
 
 const generateShortID = (gender: string) => {
@@ -51,12 +52,26 @@ export default function CVBuilder() {
   });
 
   const [photo, setPhoto] = useState<File | null>(null);
+  const [lockedGender, setLockedGender] = useState('');
 
-  // Load existing CV if editing
+  // Load profile + existing CV (registration gender is source of truth)
   useEffect(() => {
-    const loadExistingCV = async () => {
+    const loadForm = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, gender')
+        .eq('id', user.id)
+        .single();
+
+      const registrationGender = profileGenderToCVGender(profile?.gender);
+      const registrationName = profile?.full_name?.trim() || '';
+
+      if (registrationGender) {
+        setLockedGender(registrationGender);
+      }
 
       const { data: existingCV } = await supabase
         .from('cvs')
@@ -68,30 +83,31 @@ export default function CVBuilder() {
         setIsEditing(true);
         setExistingCVId(existingCV.id);
 
-        if (existingCV.data) {
-          setFormData(prev => ({
-            ...prev,
-            ...existingCV.data,
-            shortID: existingCV.short_id || '',
-            photoUrl: existingCV.photo_url || '',
-          }));
-        }
+        setFormData(prev => ({
+          ...prev,
+          ...(existingCV.data || {}),
+          fullName: registrationName || existingCV.data?.fullName || '',
+          gender: registrationGender || existingCV.data?.gender || '',
+          shortID: existingCV.short_id || '',
+          photoUrl: existingCV.photo_url || '',
+        }));
+        return;
       }
+
+      // New CV: restore draft fields but keep registration name + gender
+      const saved = localStorage.getItem('cv_form_data');
+      const draft = saved ? JSON.parse(saved) : {};
+
+      setFormData(prev => ({
+        ...prev,
+        ...draft,
+        fullName: registrationName || draft.fullName || '',
+        gender: registrationGender || draft.gender || '',
+      }));
     };
 
-    loadExistingCV();
+    loadForm();
   }, []);
-
-  // Auto-save (only for new CVs)
-  useEffect(() => {
-    if (!isEditing) {
-      const saved = localStorage.getItem('cv_form_data');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setFormData(prev => ({ ...prev, ...parsed }));
-      }
-    }
-  }, [isEditing]);
 
   useEffect(() => {
     localStorage.setItem('cv_form_data', JSON.stringify(formData));
@@ -185,31 +201,54 @@ export default function CVBuilder() {
         return;
       }
 
-      let shortID = formData.shortID;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('gender')
+        .eq('id', user.id)
+        .single();
+
+      const enforcedGender = profileGenderToCVGender(profile?.gender);
+      if (!enforcedGender) {
+        toast.error("Gender not set on your account. Please contact support.");
+        return;
+      }
+
+      const payload = {
+        ...formData,
+        gender: enforcedGender,
+      };
+
+      let shortID = payload.shortID;
       if (!shortID) {
-        shortID = generateShortID(formData.gender);
+        shortID = generateShortID(enforcedGender);
+        payload.shortID = shortID;
         setFormData(prev => ({ ...prev, shortID }));
       }
+
+      await supabase
+        .from('profiles')
+        .update({ full_name: payload.fullName.trim() })
+        .eq('id', user.id);
 
       if (isEditing && existingCVId) {
         const { error } = await supabase.from('cvs').update({
           short_id: shortID,
-          data: formData,
-          photo_url: formData.photoUrl || null,
+          data: payload,
+          photo_url: payload.photoUrl || null,
         }).eq('id', existingCVId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('cvs').insert({
           user_id: user.id,
           short_id: shortID,
-          data: formData,
-          photo_url: formData.photoUrl || null,
+          data: payload,
+          photo_url: payload.photoUrl || null,
         });
         if (error) throw error;
       }
 
       // Generate and download PDF
-      const blob = await pdf(<CVPdf data={{ ...formData, shortID }} />).toBlob();
+      const blob = await pdf(<CVPdf data={{ ...payload, shortID }} />).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -234,10 +273,15 @@ export default function CVBuilder() {
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 1: Personal Particulars & Physical Attributes</h2>
       <div className="space-y-2"><Label>Full Name</Label><Input value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Gender</Label><div className="flex gap-6 mt-2">
-        <label><input type="radio" name="gender" value="Male" checked={formData.gender === 'Male'} onChange={(e) => handleChange('gender', e.target.value)} /> Male</label>
-        <label><input type="radio" name="gender" value="Female" checked={formData.gender === 'Female'} onChange={(e) => handleChange('gender', e.target.value)} /> Female</label>
-      </div></div>
+      <div className="space-y-2">
+        <Label>Gender</Label>
+        <div className="flex h-11 items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-fk-plum">
+          {lockedGender || formData.gender || '—'}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Set during registration and used for matching. Contact support if this is incorrect.
+        </p>
+      </div>
       <div className="space-y-2"><Label>HKID Number</Label><Input value={formData.hkidNumber} onChange={(e) => handleChange('hkidNumber', e.target.value)} /></div>
       <div className="space-y-2"><Label>Profile Photo (Optional)</Label><Input type="file" accept="image/*" onChange={handlePhotoUpload} /></div>
       {formData.photoUrl && <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>}
