@@ -39,7 +39,7 @@ export async function sendEmail({
     return {
       ok: false,
       message: error.message,
-      statusCode: error.statusCode,
+      statusCode: error.statusCode ?? undefined,
     };
   }
 
