@@ -12,7 +12,7 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
-import { profileStatusFromRequestStatus } from '@/lib/verification';
+import { updateVerificationStatus } from '@/app/actions/verification';
 
 interface VerificationRequest {
   id: string;
@@ -89,27 +89,23 @@ export default function AdminVerifications() {
   }, [searchTerm, statusFilter, requests]);
 
   const updateStatus = async (id: string, newStatus: string, userId: string) => {
-    try {
-      const { error } = await supabase
-        .from('verification_requests')
-        .update({ status: newStatus })
-        .eq('id', id);
+    const result = await updateVerificationStatus({
+      requestId: id,
+      userId,
+      newStatus,
+    });
 
-      if (error) throw error;
-
-      const profileStatus = profileStatusFromRequestStatus(newStatus);
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ verification_status: profileStatus })
-        .eq('id', userId);
-
-      if (profileError) throw profileError;
-
-      toast.success(`Status updated to ${newStatus}`);
-      fetchRequests();
-    } catch {
-      toast.error("Failed to update status");
+    if (!result.success) {
+      toast.error(result.message || "Failed to update status");
+      return;
     }
+
+    if (newStatus === "verified" && !result.emailSent) {
+      toast.warning(result.message || "User verified but email could not be sent");
+    } else {
+      toast.success(result.message || `Status updated to ${newStatus}`);
+    }
+    fetchRequests();
   };
 
   if (loading) return <LoadingSpinner message="Loading verification requests..." />;

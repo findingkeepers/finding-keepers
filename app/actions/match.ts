@@ -1,8 +1,7 @@
 'use server';
 
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { Resend } from 'resend';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/email';
 
 export async function requestMatch({
   profileShortId,
@@ -14,19 +13,7 @@ export async function requestMatch({
   profileGender: string;
 }) {
   try {
-    const cookieStore = await cookies();
-
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
+    const supabase = await createServerSupabaseClient();
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -104,10 +91,7 @@ export async function requestMatch({
     });
 
     // ==================== EMAIL ====================
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
-    await resend.emails.send({
-      from: 'Finding Keepers <onboarding@resend.dev>',
+    const emailResult = await sendEmail({
       to: 'findingkeepers@connecthk.org',
       subject: `New Match Request: ${requesterShortId} → ${requestedShortId}`,
       html: `
@@ -144,6 +128,10 @@ export async function requestMatch({
         </div>
       `,
     });
+
+    if (!emailResult.ok) {
+      console.error("Match notification email failed:", emailResult.message);
+    }
 
     return { success: true };
   } catch (error: any) {

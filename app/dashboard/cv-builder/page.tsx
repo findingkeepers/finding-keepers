@@ -233,13 +233,13 @@ export default function CVBuilder() {
   const renderStep1 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 1: Personal Particulars & Physical Attributes</h2>
-      <div><Label>Full Name</Label><Input value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)} /></div>
-      <div><Label>Gender</Label><div className="flex gap-6 mt-2">
+      <div className="space-y-2"><Label>Full Name</Label><Input value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Gender</Label><div className="flex gap-6 mt-2">
         <label><input type="radio" name="gender" value="Male" checked={formData.gender === 'Male'} onChange={(e) => handleChange('gender', e.target.value)} /> Male</label>
         <label><input type="radio" name="gender" value="Female" checked={formData.gender === 'Female'} onChange={(e) => handleChange('gender', e.target.value)} /> Female</label>
       </div></div>
-      <div><Label>HKID Number</Label><Input value={formData.hkidNumber} onChange={(e) => handleChange('hkidNumber', e.target.value)} /></div>
-      <div><Label>Profile Photo (Optional)</Label><Input type="file" accept="image/*" onChange={handlePhotoUpload} /></div>
+      <div className="space-y-2"><Label>HKID Number</Label><Input value={formData.hkidNumber} onChange={(e) => handleChange('hkidNumber', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Profile Photo (Optional)</Label><Input type="file" accept="image/*" onChange={handlePhotoUpload} /></div>
       {formData.photoUrl && <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>}
     </div>
   );
@@ -247,33 +247,33 @@ export default function CVBuilder() {
   const renderStep2 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 2: Detailed Information</h2>
-      <div><Label>Short description of yourself (Minimum 100 words)</Label><Textarea value={formData.selfDescription} onChange={(e) => handleChange('selfDescription', e.target.value)} rows={5} /></div>
-      <div><Label>Residency Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Short description of yourself (Minimum 100 words)</Label><Textarea value={formData.selfDescription} onChange={(e) => handleChange('selfDescription', e.target.value)} rows={5} /></div>
+      <div className="space-y-2"><Label>Residency Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Permanent Resident", "Student", "Work Visa", "Other"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="residencyStatus" value={opt} checked={formData.residencyStatus === opt} onChange={(e) => handleChange('residencyStatus', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
-      <div><Label>Your Occupation</Label><Input value={formData.occupation} onChange={(e) => handleChange('occupation', e.target.value)} /></div>
-      <div><Label>Your Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Your Occupation</Label><Input value={formData.occupation} onChange={(e) => handleChange('occupation', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Your Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Secondary School", "Diploma/ Associate Degree", "Under-graduate", "Graduate/Post-graduate"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="education" value={opt} checked={formData.education === opt} onChange={(e) => handleChange('education', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
-      <div><Label>Marital Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Marital Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Never Married", "Divorced", "Widowed"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="maritalStatus" value={opt} checked={formData.maritalStatus === opt} onChange={(e) => handleChange('maritalStatus', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
-      <div><Label>Religious History</Label><div className="flex gap-6 mt-2">
+      <div className="space-y-2"><Label>Religious History</Label><div className="flex gap-6 mt-2">
         <label><input type="radio" name="religiousHistory" value="Born Muslim" checked={formData.religiousHistory === "Born Muslim"} onChange={(e) => handleChange('religiousHistory', e.target.value)} /> Born Muslim</label>
         <label><input type="radio" name="religiousHistory" value="Revert" checked={formData.religiousHistory === "Revert"} onChange={(e) => handleChange('religiousHistory', e.target.value)} /> Revert</label>
       </div></div>
-      <div><Label>Do you pray?</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Do you pray?</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["All Fard + Nafil Prayers", "All Fard Prayers", "Some Fard Prayers", "Rarely Pray", "Want to Start Praying", "Do Not Pray"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="prayLevel" value={opt} checked={formData.prayLevel === opt} onChange={(e) => handleChange('prayLevel', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
-      <div><Label>Sect / Madhab</Label><div className="flex gap-6 mt-2 flex-wrap">
+      <div className="space-y-2"><Label>Sect / Madhab</Label><div className="flex gap-6 mt-2 flex-wrap">
         <label><input type="radio" name="sect" value="Sunni" checked={formData.sect === "Sunni"} onChange={(e) => handleChange('sect', e.target.value)} /> Sunni</label>
         <label><input type="radio" name="sect" value="Shia" checked={formData.sect === "Shia"} onChange={(e) => handleChange('sect', e.target.value)} /> Shia</label>
         <label><input type="radio" name="sect" value="Other" checked={formData.sect === "Other"} onChange={(e) => handleChange('sect', e.target.value)} /> Other</label>
@@ -285,36 +285,36 @@ export default function CVBuilder() {
   const renderStep3 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 3: Personality & Individualism</h2>
-      <div><Label>How would you describe your sense of humor?</Label><Textarea value={formData.senseOfHumor} onChange={(e) => handleChange('senseOfHumor', e.target.value)} rows={3} /></div>
-      <div><Label>What motivates you in life?</Label><Textarea value={formData.motivation} onChange={(e) => handleChange('motivation', e.target.value)} rows={3} /></div>
-      <div><Label>If you could change one thing about yourself, what would it be?</Label><Textarea value={formData.changeAboutSelf} onChange={(e) => handleChange('changeAboutSelf', e.target.value)} rows={3} /></div>
-      <div><Label>What types of people do you get along with?</Label><Textarea value={formData.peopleGetAlongWith} onChange={(e) => handleChange('peopleGetAlongWith', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How would you describe your sense of humor?</Label><Textarea value={formData.senseOfHumor} onChange={(e) => handleChange('senseOfHumor', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What motivates you in life?</Label><Textarea value={formData.motivation} onChange={(e) => handleChange('motivation', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>If you could change one thing about yourself, what would it be?</Label><Textarea value={formData.changeAboutSelf} onChange={(e) => handleChange('changeAboutSelf', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What types of people do you get along with?</Label><Textarea value={formData.peopleGetAlongWith} onChange={(e) => handleChange('peopleGetAlongWith', e.target.value)} rows={3} /></div>
     </div>
   );
 
   const renderStep4 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 4: Marriage & Partner Preferences</h2>
-      <div><Label>What qualities do you value most in a partner?</Label><Textarea value={formData.partnerQualities} onChange={(e) => handleChange('partnerQualities', e.target.value)} rows={3} /></div>
-      <div><Label>What is your vision of a successful marriage?</Label><Textarea value={formData.marriageVision} onChange={(e) => handleChange('marriageVision', e.target.value)} rows={3} /></div>
-      <div><Label>How important is it for you to share similar interests with your spouse?</Label><Textarea value={formData.sharedInterestsImportance} onChange={(e) => handleChange('sharedInterestsImportance', e.target.value)} rows={3} /></div>
-      <div><Label>How do you think a strong partnership can contribute to personal growth?</Label><Textarea value={formData.partnershipGrowth} onChange={(e) => handleChange('partnershipGrowth', e.target.value)} rows={3} /></div>
-      <div><Label>What are your deal breakers?</Label><Textarea value={formData.dealBreakers} onChange={(e) => handleChange('dealBreakers', e.target.value)} rows={3} /></div>
-      <div><Label>What are you seeking in a partner? (min 100 characters)</Label><Textarea value={formData.whatSeeking} onChange={(e) => handleChange('whatSeeking', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What qualities do you value most in a partner?</Label><Textarea value={formData.partnerQualities} onChange={(e) => handleChange('partnerQualities', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What is your vision of a successful marriage?</Label><Textarea value={formData.marriageVision} onChange={(e) => handleChange('marriageVision', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How important is it for you to share similar interests with your spouse?</Label><Textarea value={formData.sharedInterestsImportance} onChange={(e) => handleChange('sharedInterestsImportance', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you think a strong partnership can contribute to personal growth?</Label><Textarea value={formData.partnershipGrowth} onChange={(e) => handleChange('partnershipGrowth', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are your deal breakers?</Label><Textarea value={formData.dealBreakers} onChange={(e) => handleChange('dealBreakers', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are you seeking in a partner? (min 100 characters)</Label><Textarea value={formData.whatSeeking} onChange={(e) => handleChange('whatSeeking', e.target.value)} rows={3} /></div>
 
-      <div><Label>Partner’s Age Range</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Partner’s Age Range</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Less than 25 years", "Between 25 to 30 years", "Between 30 to 35 years", "Above 35 years"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="partnerAgeRange" value={opt} checked={formData.partnerAgeRange === opt} onChange={(e) => handleChange('partnerAgeRange', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
 
-      <div><Label>Partner’s Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+      <div className="space-y-2"><Label>Partner’s Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Secondary School", "Diploma/ Associate Degree", "Under-graduate", "Graduate/Post-graduate"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="partnerEducation" value={opt} checked={formData.partnerEducation === opt} onChange={(e) => handleChange('partnerEducation', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
 
-      <div><Label>Partner’s Ethnic Background (Select all that apply)</Label><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+      <div className="space-y-2"><Label>Partner’s Ethnic Background (Select all that apply)</Label><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
         {["Chinese", "Pakistani", "Indian", "Bangladeshi", "Malaysian", "Indonesian", "Philippines", "Other"].map(opt => (
           <label key={opt} className="flex items-center gap-2">
             <input type="checkbox" checked={formData.partnerEthnicBackground?.includes(opt) || false} onChange={() => handleMultiSelect('partnerEthnicBackground', opt)} /> {opt}
@@ -327,60 +327,60 @@ export default function CVBuilder() {
   const renderStep5 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 5: Family + Lifestyle & Goals</h2>
-      <div><Label>What role does your family play in your life?</Label><Textarea value={formData.familyRole} onChange={(e) => handleChange('familyRole', e.target.value)} rows={3} /></div>
-      <div><Label>Who are you closest to in your family, and why?</Label><Textarea value={formData.closestFamilyMember} onChange={(e) => handleChange('closestFamilyMember', e.target.value)} rows={3} /></div>
-      <div><Label>What are some of your hobbies?</Label><Textarea value={formData.hobbies} onChange={(e) => handleChange('hobbies', e.target.value)} rows={3} /></div>
-      <div><Label>Do you have any favorite books or movies that have influenced you?</Label><Textarea value={formData.favoriteBooksMovies} onChange={(e) => handleChange('favoriteBooksMovies', e.target.value)} rows={3} /></div>
-      <div><Label>How often do you hang out with friends?</Label><Textarea value={formData.hangoutWithFriends} onChange={(e) => handleChange('hangoutWithFriends', e.target.value)} rows={3} /></div>
-      <div><Label>What is your favorite way to relax or unwind?</Label><Textarea value={formData.relaxMethod} onChange={(e) => handleChange('relaxMethod', e.target.value)} rows={3} /></div>
-      <div><Label>What are your long-term goals (personal & professional)?</Label><Textarea value={formData.longTermGoals} onChange={(e) => handleChange('longTermGoals', e.target.value)} rows={3} /></div>
-      <div><Label>How do you see your ideal lifestyle as a couple?</Label><Textarea value={formData.idealCoupleLifestyle} onChange={(e) => handleChange('idealCoupleLifestyle', e.target.value)} rows={3} /></div>
-      <div><Label>How do you seek to improve yourself over time?</Label><Textarea value={formData.selfImprovement} onChange={(e) => handleChange('selfImprovement', e.target.value)} rows={3} /></div>
-      <div><Label>How do you balance work and personal life?</Label><Textarea value={formData.workLifeBalance} onChange={(e) => handleChange('workLifeBalance', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What role does your family play in your life?</Label><Textarea value={formData.familyRole} onChange={(e) => handleChange('familyRole', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>Who are you closest to in your family, and why?</Label><Textarea value={formData.closestFamilyMember} onChange={(e) => handleChange('closestFamilyMember', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are some of your hobbies?</Label><Textarea value={formData.hobbies} onChange={(e) => handleChange('hobbies', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>Do you have any favorite books or movies that have influenced you?</Label><Textarea value={formData.favoriteBooksMovies} onChange={(e) => handleChange('favoriteBooksMovies', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How often do you hang out with friends?</Label><Textarea value={formData.hangoutWithFriends} onChange={(e) => handleChange('hangoutWithFriends', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What is your favorite way to relax or unwind?</Label><Textarea value={formData.relaxMethod} onChange={(e) => handleChange('relaxMethod', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are your long-term goals (personal & professional)?</Label><Textarea value={formData.longTermGoals} onChange={(e) => handleChange('longTermGoals', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you see your ideal lifestyle as a couple?</Label><Textarea value={formData.idealCoupleLifestyle} onChange={(e) => handleChange('idealCoupleLifestyle', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you seek to improve yourself over time?</Label><Textarea value={formData.selfImprovement} onChange={(e) => handleChange('selfImprovement', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you balance work and personal life?</Label><Textarea value={formData.workLifeBalance} onChange={(e) => handleChange('workLifeBalance', e.target.value)} rows={3} /></div>
     </div>
   );
 
   const renderStep6 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 6: Values, Religion & Faith</h2>
-      <div><Label>What values are most important to you in life?</Label><Textarea value={formData.importantValues} onChange={(e) => handleChange('importantValues', e.target.value)} rows={3} /></div>
-      <div><Label>How do your beliefs shape your daily activities and decisions?</Label><Textarea value={formData.beliefsShapeLife} onChange={(e) => handleChange('beliefsShapeLife', e.target.value)} rows={3} /></div>
-      <div><Label>How do you incorporate your faith into your daily life?</Label><Textarea value={formData.faithInDailyLife} onChange={(e) => handleChange('faithInDailyLife', e.target.value)} rows={3} /></div>
-      <div><Label>What role does prayer and community play in your life?</Label><Textarea value={formData.prayerCommunityRole} onChange={(e) => handleChange('prayerCommunityRole', e.target.value)} rows={3} /></div>
-      <div><Label>How do you envision practicing your faith together with your future spouse?</Label><Textarea value={formData.faithWithSpouse} onChange={(e) => handleChange('faithWithSpouse', e.target.value)} rows={3} /></div>
-      <div><Label>What are your views on raising children in accordance with Islamic values?</Label><Textarea value={formData.raisingChildrenIslamic} onChange={(e) => handleChange('raisingChildrenIslamic', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What values are most important to you in life?</Label><Textarea value={formData.importantValues} onChange={(e) => handleChange('importantValues', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do your beliefs shape your daily activities and decisions?</Label><Textarea value={formData.beliefsShapeLife} onChange={(e) => handleChange('beliefsShapeLife', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you incorporate your faith into your daily life?</Label><Textarea value={formData.faithInDailyLife} onChange={(e) => handleChange('faithInDailyLife', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What role does prayer and community play in your life?</Label><Textarea value={formData.prayerCommunityRole} onChange={(e) => handleChange('prayerCommunityRole', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you envision practicing your faith together with your future spouse?</Label><Textarea value={formData.faithWithSpouse} onChange={(e) => handleChange('faithWithSpouse', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are your views on raising children in accordance with Islamic values?</Label><Textarea value={formData.raisingChildrenIslamic} onChange={(e) => handleChange('raisingChildrenIslamic', e.target.value)} rows={3} /></div>
     </div>
   );
 
   const renderStep7 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 7: Communication & Conflict Resolution</h2>
-      <div><Label>What is your approach to conflict resolution?</Label><Textarea value={formData.conflictResolution} onChange={(e) => handleChange('conflictResolution', e.target.value)} rows={3} /></div>
-      <div><Label>How do you handle stress or difficult situations?</Label><Textarea value={formData.handleStress} onChange={(e) => handleChange('handleStress', e.target.value)} rows={3} /></div>
-      <div><Label>How do you typically handle disagreements or conflicts in relationships?</Label><Textarea value={formData.handleDisagreements} onChange={(e) => handleChange('handleDisagreements', e.target.value)} rows={3} /></div>
-      <div><Label>What role does communication play in resolving issues for you?</Label><Textarea value={formData.communicationRole} onChange={(e) => handleChange('communicationRole', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What is your approach to conflict resolution?</Label><Textarea value={formData.conflictResolution} onChange={(e) => handleChange('conflictResolution', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you handle stress or difficult situations?</Label><Textarea value={formData.handleStress} onChange={(e) => handleChange('handleStress', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you typically handle disagreements or conflicts in relationships?</Label><Textarea value={formData.handleDisagreements} onChange={(e) => handleChange('handleDisagreements', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What role does communication play in resolving issues for you?</Label><Textarea value={formData.communicationRole} onChange={(e) => handleChange('communicationRole', e.target.value)} rows={3} /></div>
     </div>
   );
 
   const renderStep8 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 8: Guarantor / Wali (Private)</h2>
-      <div><Label>Involvement of Parents/Wali</Label><div className="grid grid-cols-1 gap-2 mt-2">
+      <div className="space-y-2"><Label>Involvement of Parents/Wali</Label><div className="grid grid-cols-1 gap-2 mt-2">
         {["My parents/wali will be involved from the beginning", "My parents/wali will be involved if I have found a match", "I do not wish to involve my parents/wali"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="waliInvolvement" value={opt} checked={formData.waliInvolvement === opt} onChange={(e) => handleChange('waliInvolvement', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
-      <div><Label>If you selected "No", please state the reason (otherwise put N/A)</Label><Textarea value={formData.waliReason} onChange={(e) => handleChange('waliReason', e.target.value)} rows={3} /></div>
-      <div><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
+      <div className="space-y-2"><Label>If you selected "No", please state the reason (otherwise put N/A)</Label><Textarea value={formData.waliReason} onChange={(e) => handleChange('waliReason', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
         <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Father</label>
         <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Mother</label>
         <label><input type="radio" name="waliRelationship" value="Other" checked={formData.waliRelationship === "Other"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Other</label>
       </div></div>
-      <div><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
-      <div><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
-      <div><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
-      <div><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
-      <div><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
+      <div className="space-y-2"><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
     </div>
   );
 
