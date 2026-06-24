@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { CVProgressBar } from '@/components/cv/CVProgressBar';
+import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
@@ -19,6 +23,7 @@ const generateShortID = (gender: string) => {
 
 export default function CVBuilder() {
   const router = useRouter();
+  const { onMenuClick } = useDashboardMenu();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 8;
   const [errors, setErrors] = useState<string[]>([]);
@@ -227,7 +232,7 @@ export default function CVBuilder() {
 
   const renderStep1 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 1: Personal Particulars & Physical Attributes</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 1: Personal Particulars & Physical Attributes</h2>
       <div><Label>Full Name</Label><Input value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)} /></div>
       <div><Label>Gender</Label><div className="flex gap-6 mt-2">
         <label><input type="radio" name="gender" value="Male" checked={formData.gender === 'Male'} onChange={(e) => handleChange('gender', e.target.value)} /> Male</label>
@@ -241,7 +246,7 @@ export default function CVBuilder() {
 
   const renderStep2 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 2: Detailed Information</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 2: Detailed Information</h2>
       <div><Label>Short description of yourself (Minimum 100 words)</Label><Textarea value={formData.selfDescription} onChange={(e) => handleChange('selfDescription', e.target.value)} rows={5} /></div>
       <div><Label>Residency Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Permanent Resident", "Student", "Work Visa", "Other"].map(opt => (
@@ -279,7 +284,7 @@ export default function CVBuilder() {
 
   const renderStep3 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 3: Personality & Individualism</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 3: Personality & Individualism</h2>
       <div><Label>How would you describe your sense of humor?</Label><Textarea value={formData.senseOfHumor} onChange={(e) => handleChange('senseOfHumor', e.target.value)} rows={3} /></div>
       <div><Label>What motivates you in life?</Label><Textarea value={formData.motivation} onChange={(e) => handleChange('motivation', e.target.value)} rows={3} /></div>
       <div><Label>If you could change one thing about yourself, what would it be?</Label><Textarea value={formData.changeAboutSelf} onChange={(e) => handleChange('changeAboutSelf', e.target.value)} rows={3} /></div>
@@ -289,7 +294,7 @@ export default function CVBuilder() {
 
   const renderStep4 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 4: Marriage & Partner Preferences</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 4: Marriage & Partner Preferences</h2>
       <div><Label>What qualities do you value most in a partner?</Label><Textarea value={formData.partnerQualities} onChange={(e) => handleChange('partnerQualities', e.target.value)} rows={3} /></div>
       <div><Label>What is your vision of a successful marriage?</Label><Textarea value={formData.marriageVision} onChange={(e) => handleChange('marriageVision', e.target.value)} rows={3} /></div>
       <div><Label>How important is it for you to share similar interests with your spouse?</Label><Textarea value={formData.sharedInterestsImportance} onChange={(e) => handleChange('sharedInterestsImportance', e.target.value)} rows={3} /></div>
@@ -321,7 +326,7 @@ export default function CVBuilder() {
 
   const renderStep5 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 5: Family + Lifestyle & Goals</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 5: Family + Lifestyle & Goals</h2>
       <div><Label>What role does your family play in your life?</Label><Textarea value={formData.familyRole} onChange={(e) => handleChange('familyRole', e.target.value)} rows={3} /></div>
       <div><Label>Who are you closest to in your family, and why?</Label><Textarea value={formData.closestFamilyMember} onChange={(e) => handleChange('closestFamilyMember', e.target.value)} rows={3} /></div>
       <div><Label>What are some of your hobbies?</Label><Textarea value={formData.hobbies} onChange={(e) => handleChange('hobbies', e.target.value)} rows={3} /></div>
@@ -337,7 +342,7 @@ export default function CVBuilder() {
 
   const renderStep6 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 6: Values, Religion & Faith</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 6: Values, Religion & Faith</h2>
       <div><Label>What values are most important to you in life?</Label><Textarea value={formData.importantValues} onChange={(e) => handleChange('importantValues', e.target.value)} rows={3} /></div>
       <div><Label>How do your beliefs shape your daily activities and decisions?</Label><Textarea value={formData.beliefsShapeLife} onChange={(e) => handleChange('beliefsShapeLife', e.target.value)} rows={3} /></div>
       <div><Label>How do you incorporate your faith into your daily life?</Label><Textarea value={formData.faithInDailyLife} onChange={(e) => handleChange('faithInDailyLife', e.target.value)} rows={3} /></div>
@@ -349,7 +354,7 @@ export default function CVBuilder() {
 
   const renderStep7 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 7: Communication & Conflict Resolution</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 7: Communication & Conflict Resolution</h2>
       <div><Label>What is your approach to conflict resolution?</Label><Textarea value={formData.conflictResolution} onChange={(e) => handleChange('conflictResolution', e.target.value)} rows={3} /></div>
       <div><Label>How do you handle stress or difficult situations?</Label><Textarea value={formData.handleStress} onChange={(e) => handleChange('handleStress', e.target.value)} rows={3} /></div>
       <div><Label>How do you typically handle disagreements or conflicts in relationships?</Label><Textarea value={formData.handleDisagreements} onChange={(e) => handleChange('handleDisagreements', e.target.value)} rows={3} /></div>
@@ -359,7 +364,7 @@ export default function CVBuilder() {
 
   const renderStep8 = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Step 8: Guarantor / Wali (Private)</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 8: Guarantor / Wali (Private)</h2>
       <div><Label>Involvement of Parents/Wali</Label><div className="grid grid-cols-1 gap-2 mt-2">
         {["My parents/wali will be involved from the beginning", "My parents/wali will be involved if I have found a match", "I do not wish to involve my parents/wali"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="waliInvolvement" value={opt} checked={formData.waliInvolvement === opt} onChange={(e) => handleChange('waliInvolvement', e.target.value)} /> {opt}</label>
@@ -380,58 +385,50 @@ export default function CVBuilder() {
   );
 
   return (
-    <div className="max-w-3xl mx-auto p-6 md:p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">
-            {isEditing ? "Edit Your CV" : "CV Builder"}
-          </h1>
-          <p className="text-gray-600">Step {currentStep} of {totalSteps}</p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full md:w-auto">
-          ← Back to Dashboard
-        </Button>
-      </div>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        title={isEditing ? "Edit Your CV" : "CV Builder"}
+        subtitle="Complete each section to build your marriage profile."
+        eyebrow="Your Profile"
+        onMenuClick={onMenuClick}
+        actions={
+          <Button variant="premium-outline" className="rounded-xl" onClick={() => router.push('/dashboard')}>
+            ← Dashboard
+          </Button>
+        }
+      />
 
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm text-gray-600 mb-1">
-          <span>Progress</span>
-          <span>{Math.round((currentStep / totalSteps) * 100)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div className="bg-black h-3 rounded-full transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
-        </div>
-      </div>
+      <CVProgressBar currentStep={currentStep} totalSteps={totalSteps} />
 
-      <div className="bg-white p-6 md:p-8 rounded-2xl shadow min-h-[500px]">
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
-        {currentStep === 6 && renderStep6()}
-        {currentStep === 7 && renderStep7()}
-        {currentStep === 8 && renderStep8()}
+      <Card className="min-h-[500px]">
+        <CardContent className="pt-2">
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
+          {currentStep === 6 && renderStep6()}
+          {currentStep === 7 && renderStep7()}
+          {currentStep === 8 && renderStep8()}
 
-        {errors.length > 0 && (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-xl mt-6">
-            <p className="font-semibold text-red-600 mb-2">Please fix the following issues before submitting:</p>
-            <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
-              {errors.map((error, index) => <li key={index}>{error}</li>)}
-            </ul>
-          </div>
-        )}
-      </div>
+          {errors.length > 0 && (
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="mb-2 font-semibold text-red-600">Please fix the following issues before submitting:</p>
+              <ul className="list-inside list-disc space-y-1 text-sm text-red-600">
+                {errors.map((error, index) => <li key={index}>{error}</li>)}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Navigation Buttons - Mobile Friendly */}
-      <div className="flex flex-col sm:flex-row justify-between gap-3 mt-6">
-        <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} className="w-full sm:w-auto">
+      <div className="mt-6 flex flex-col justify-between gap-3 sm:flex-row">
+        <Button variant="premium-outline" className="h-11 rounded-xl" onClick={prevStep} disabled={currentStep === 1}>
           Back
         </Button>
-        <Button onClick={currentStep === totalSteps ? handleSubmit : nextStep} className="w-full sm:w-auto">
-          {currentStep === totalSteps 
-            ? (isEditing ? "Update CV" : "Submit CV") 
+        <Button variant="premium" className="h-11 rounded-xl" onClick={currentStep === totalSteps ? handleSubmit : nextStep}>
+          {currentStep === totalSteps
+            ? (isEditing ? "Update CV" : "Submit CV")
             : "Next"}
         </Button>
       </div>

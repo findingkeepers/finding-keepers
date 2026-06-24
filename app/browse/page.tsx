@@ -4,12 +4,19 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { FilterBar } from '@/components/layout/FilterBar';
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ProfileCard } from '@/components/browse/ProfileCard';
 
 interface CV {
   id: string;
   short_id: string;
   photo_url: string | null;
-  data: any;
+  data: Record<string, string>;
 }
 
 export default function BrowsePage() {
@@ -17,7 +24,6 @@ export default function BrowsePage() {
   const [cvs, setCvs] = useState<CV[]>([]);
   const [filteredCVs, setFilteredCVs] = useState<CV[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userGender, setUserGender] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [occupationFilter, setOccupationFilter] = useState('');
@@ -42,19 +48,15 @@ export default function BrowsePage() {
         return;
       }
 
-      setUserGender(profile.gender);
-
       const oppositeGender = profile.gender.toLowerCase() === 'male' ? 'female' : 'male';
 
-      // Fetch all CVs first
       const { data: cvData, error } = await supabase
         .from('cvs')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (!error && cvData) {
-        // Filter by gender (case-insensitive)
-        const filtered = cvData.filter((cv: any) => {
+        const filtered = cvData.filter((cv: CV) => {
           const cvGender = cv.data?.gender?.toLowerCase();
           return cvGender === oppositeGender;
         });
@@ -69,7 +71,6 @@ export default function BrowsePage() {
     fetchOppositeGenderCVs();
   }, [router]);
 
-  // Filter logic (search + occupation + education)
   useEffect(() => {
     let result = cvs;
 
@@ -96,95 +97,83 @@ export default function BrowsePage() {
     setFilteredCVs(result);
   }, [searchTerm, occupationFilter, educationFilter, cvs]);
 
-  if (loading) return <div className="p-8 text-center">Loading profiles...</div>;
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <LoadingSpinner message="Loading profiles..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 md:p-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <h1 className="text-3xl font-bold">Browse Profiles</h1>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
-          ← Back to Dashboard
-        </Button>
-      </div>
+    <div className="mx-auto max-w-7xl px-6 py-8 md:px-10">
+      <PageHeader
+        title="Browse Profiles"
+        subtitle="Discover verified members who may be your right fit."
+        eyebrow="Find Your Match"
+      />
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-2xl shadow mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <input
-          type="text"
-          placeholder="Search by name or Short ID..."
-          className="border rounded-lg p-3 w-full"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Filter by occupation..."
-          className="border rounded-lg p-3 w-full"
-          value={occupationFilter}
-          onChange={(e) => setOccupationFilter(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Filter by education..."
-          className="border rounded-lg p-3 w-full"
-          value={educationFilter}
-          onChange={(e) => setEducationFilter(e.target.value)}
-        />
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSearchTerm('');
-            setOccupationFilter('');
-            setEducationFilter('');
-          }}
-        >
-          Clear Filters
-        </Button>
-      </div>
+      <FilterBar>
+        <div className="space-y-2">
+          <Label>Search</Label>
+          <Input
+            placeholder="Search by name or Short ID..."
+            className="h-11 rounded-xl"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Occupation</Label>
+          <Input
+            placeholder="Filter by occupation..."
+            className="h-11 rounded-xl"
+            value={occupationFilter}
+            onChange={(e) => setOccupationFilter(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Education</Label>
+          <Input
+            placeholder="Filter by education..."
+            className="h-11 rounded-xl"
+            value={educationFilter}
+            onChange={(e) => setEducationFilter(e.target.value)}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button
+            variant="premium-outline"
+            className="h-11 w-full rounded-xl"
+            onClick={() => {
+              setSearchTerm('');
+              setOccupationFilter('');
+              setEducationFilter('');
+            }}
+          >
+            Clear Filters
+          </Button>
+        </div>
+      </FilterBar>
 
       {filteredCVs.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-gray-600 text-lg">No profiles found matching your filters.</p>
-        </div>
+        <EmptyState
+          title="No Profiles Found"
+          description="No profiles match your current filters. Try adjusting your search criteria."
+        />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredCVs.map((cv) => (
-            <div 
-              key={cv.id} 
-              className="bg-white rounded-2xl shadow overflow-hidden hover:shadow-lg transition"
-            >
-              {cv.photo_url ? (
-                <img 
-                  src={cv.photo_url} 
-                  alt="Profile" 
-                  className="w-full h-56 object-cover" 
-                />
-              ) : (
-                <div className="w-full h-56 bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-500">No Photo</span>
-                </div>
-              )}
-
-              <div className="p-5">
-                <div className="mb-4">
-                  <span className="text-xs text-gray-500">Short ID</span>
-                  <p className="text-2xl font-bold tracking-[3px]">{cv.short_id}</p>
-                </div>
-
-                <div className="text-sm space-y-1.5 mb-5">
-                  <p><span className="font-medium">Name:</span> {cv.data?.fullName}</p>
-                  <p><span className="font-medium">Occupation:</span> {cv.data?.occupation || 'N/A'}</p>
-                  <p><span className="font-medium">Education:</span> {cv.data?.education || 'N/A'}</p>
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={() => router.push(`/browse/${cv.short_id}`)}
-                >
-                  View Profile
-                </Button>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredCVs.map((cv, index) => (
+            <ProfileCard
+              key={cv.id}
+              shortId={cv.short_id}
+              fullName={cv.data?.fullName}
+              occupation={cv.data?.occupation}
+              education={cv.data?.education}
+              photoUrl={cv.photo_url}
+              index={index}
+              onView={() => router.push(`/browse/${cv.short_id}`)}
+            />
           ))}
         </div>
       )}

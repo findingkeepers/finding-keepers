@@ -1,11 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { AuthCard } from '@/components/layout/AuthCard';
 import { toast } from 'sonner';
 
 export default function RegisterPage() {
@@ -13,110 +16,110 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  const formData = new FormData(e.currentTarget);
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const confirmPassword = formData.get('confirmPassword') as string;
-  const full_name = formData.get('full_name') as string;
-  const gender = formData.get('gender') as string;
-  const phone = formData.get('phone') as string;
-  const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+    const full_name = formData.get('full_name') as string;
+    const gender = formData.get('gender') as string;
+    const phone = formData.get('phone') as string;
+    const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
 
-  if (password !== confirmPassword) {
-    toast.error("Passwords do not match");
-    setLoading(false);
-    return;
-  }
-
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: full_name,
-        gender: gender,
-        phone: phone || '',
-        is_permanent_resident: is_permanent_resident,
-      }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      setLoading(false);
+      return;
     }
-  });
 
-  if (error) {
-    toast.error(error.message);
-  } else {
-    toast.success("Account created successfully! Please check your email to confirm.");
-    router.push('/login');
-  }
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: full_name,
+          gender: gender,
+          phone: phone || '',
+          is_permanent_resident: is_permanent_resident,
+        }
+      }
+    });
 
-  setLoading(false);
-};
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Account created successfully! Please check your email to confirm.");
+      router.push('/login');
+    }
+
+    setLoading(false);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold">Finding Keepers</h1>
-          <p className="text-gray-600 mt-2">Create your account</p>
+    <AuthCard
+      title="Create Your Account"
+      subtitle="Begin your journey with Finding Keepers"
+      className="max-w-lg"
+      footer={
+        <p className="text-muted-foreground">
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-fk-plum hover:text-fk-mauve">
+            Login here
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={handleRegister} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="full_name">Full Name</Label>
+          <Input id="full_name" name="full_name" placeholder="Ahmed Khan" className="h-11 rounded-xl" required />
         </div>
 
-        <form onSubmit={handleRegister} className="space-y-5">
-          <div>
-            <Label>Full Name</Label>
-            <Input name="full_name" placeholder="Ahmed Khan" required />
+        <div className="space-y-2">
+          <Label htmlFor="email">Email Address</Label>
+          <Input id="email" name="email" type="email" placeholder="you@example.com" className="h-11 rounded-xl" required />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" name="password" type="password" className="h-11 rounded-xl" required minLength={6} />
           </div>
-
-          <div>
-            <Label>Email Address</Label>
-            <Input name="email" type="email" placeholder="you@example.com" required />
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input id="confirmPassword" name="confirmPassword" type="password" className="h-11 rounded-xl" required minLength={6} />
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Password</Label>
-              <Input name="password" type="password" required minLength={6} />
-            </div>
-            <div>
-              <Label>Confirm Password</Label>
-              <Input name="confirmPassword" type="password" required minLength={6} />
-            </div>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="gender">Gender</Label>
+          <Select id="gender" name="gender" required defaultValue="">
+            <option value="" disabled>Select Gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </Select>
+        </div>
 
-          <div>
-            <Label>Gender</Label>
-            <select name="gender" required className="w-full border rounded-md p-2.5">
-              <option value="">Select Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input id="phone" name="phone" type="tel" placeholder="+852 XXXX XXXX" className="h-11 rounded-xl" required />
+        </div>
 
-          <div>
-            <Label>Phone Number</Label>
-            <Input name="phone" type="tel" placeholder="+852 XXXX XXXX" required />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="is_permanent_resident">Are you a Hong Kong Permanent Resident?</Label>
+          <Select id="is_permanent_resident" name="is_permanent_resident" required defaultValue="">
+            <option value="" disabled>Select</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </Select>
+        </div>
 
-          <div>
-            <Label>Are you a Hong Kong Permanent Resident?</Label>
-            <select name="is_permanent_resident" required className="w-full border rounded-md p-2.5">
-              <option value="">Select</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-
-          <Button type="submit" className="w-full h-11" disabled={loading}>
-            {loading ? "Creating Account..." : "Create Account"}
-          </Button>
-        </form>
-
-        <p className="text-center text-sm mt-6 text-gray-600">
-          Already have an account?{" "}
-          <a href="/login" className="text-blue-600 hover:underline">Login here</a>
-        </p>
-      </div>
-    </div>
+        <Button type="submit" variant="premium" className="h-11 w-full rounded-xl" disabled={loading}>
+          {loading ? "Creating Account..." : "Create Account"}
+        </Button>
+      </form>
+    </AuthCard>
   );
 }

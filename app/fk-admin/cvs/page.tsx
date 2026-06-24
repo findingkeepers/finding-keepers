@@ -2,52 +2,37 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { FilterBar } from '@/components/layout/FilterBar';
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
+import { toast } from 'sonner';
 
 interface CV {
   id: string;
   short_id: string;
   photo_url: string | null;
-  data: any;
+  data: Record<string, string>;
   created_at: string;
 }
 
 export default function AdminCVsPage() {
-  const router = useRouter();
   const [cvs, setCvs] = useState<CV[]>([]);
   const [filteredCVs, setFilteredCVs] = useState<CV[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('');
   const [occupationFilter, setOccupationFilter] = useState('');
-
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAllCVs = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/fk-admin/login');
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile || profile.role !== 'admin') {
-        router.push('/dashboard');
-        return;
-      }
-
       const { data: cvData, error } = await supabase
         .from('cvs')
         .select('id, short_id, photo_url, data, created_at')
@@ -61,13 +46,11 @@ export default function AdminCVsPage() {
     };
 
     fetchAllCVs();
-  }, [router]);
+  }, []);
 
-  // Apply filters
   useEffect(() => {
     let result = cvs;
 
-    // Search by name or Short ID
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(cv =>
@@ -76,14 +59,12 @@ export default function AdminCVsPage() {
       );
     }
 
-    // Filter by Gender
     if (genderFilter) {
       result = result.filter(cv =>
         cv.data?.gender?.toLowerCase() === genderFilter.toLowerCase()
       );
     }
 
-    // Filter by Occupation
     if (occupationFilter) {
       result = result.filter(cv =>
         cv.data?.occupation?.toLowerCase().includes(occupationFilter.toLowerCase())
@@ -103,64 +84,54 @@ export default function AdminCVsPage() {
       link.download = `CV_${cv.short_id}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch (err) {
-      alert("Failed to download PDF");
+    } catch {
+      toast.error("Failed to download PDF");
     } finally {
       setDownloadingId(null);
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Loading CVs...</div>;
+  if (loading) return <LoadingSpinner message="Loading CVs..." />;
 
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Manage CVs</h1>
-          <p className="text-gray-600">Total: {filteredCVs.length} / {cvs.length}</p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/fk-admin')}>
-          ← Back to Dashboard
-        </Button>
-      </div>
+    <div className="mx-auto max-w-7xl">
+      <PageHeader
+        title="Manage CVs"
+        subtitle={`${filteredCVs.length} of ${cvs.length} CVs`}
+        eyebrow="CV Management"
+      />
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label className="text-sm font-medium">Search (Name / Short ID)</label>
+      <FilterBar>
+        <div className="space-y-2">
+          <Label>Search</Label>
           <Input
-            placeholder="Search..."
+            placeholder="Name or Short ID..."
+            className="h-11 rounded-xl"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
-        <div>
-          <label className="text-sm font-medium">Gender</label>
-          <select
-            className="w-full border rounded-md p-2"
-            value={genderFilter}
-            onChange={(e) => setGenderFilter(e.target.value)}
-          >
+        <div className="space-y-2">
+          <Label>Gender</Label>
+          <Select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
             <option value="">All Genders</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
-          </select>
+          </Select>
         </div>
-
-        <div>
-          <label className="text-sm font-medium">Occupation</label>
+        <div className="space-y-2">
+          <Label>Occupation</Label>
           <Input
             placeholder="Filter by occupation..."
+            className="h-11 rounded-xl"
             value={occupationFilter}
             onChange={(e) => setOccupationFilter(e.target.value)}
           />
         </div>
-
         <div className="flex items-end">
-          <Button 
-            variant="outline" 
-            className="w-full"
+          <Button
+            variant="premium-outline"
+            className="h-11 w-full rounded-xl"
             onClick={() => {
               setSearchTerm('');
               setGenderFilter('');
@@ -170,49 +141,52 @@ export default function AdminCVsPage() {
             Clear Filters
           </Button>
         </div>
-      </div>
+      </FilterBar>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-100">
+      <DataTable>
+        <table className="w-full min-w-[600px]">
+          <DataTableHead>
             <tr>
-              <th className="text-left p-4">Short ID</th>
-              <th className="text-left p-4">Name</th>
-              <th className="text-left p-4">Gender</th>
-              <th className="text-left p-4">Occupation</th>
-              <th className="text-center p-4">Action</th>
+              <DataTableCell header>Short ID</DataTableCell>
+              <DataTableCell header>Name</DataTableCell>
+              <DataTableCell header>Gender</DataTableCell>
+              <DataTableCell header>Occupation</DataTableCell>
+              <DataTableCell header>Action</DataTableCell>
             </tr>
-          </thead>
+          </DataTableHead>
           <tbody>
             {filteredCVs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-500">
+                <td colSpan={5} className="p-8 text-center text-muted-foreground">
                   No CVs found matching your filters.
                 </td>
               </tr>
             ) : (
               filteredCVs.map((cv) => (
-                <tr key={cv.id} className="border-t hover:bg-gray-50">
-                  <td className="p-4 font-mono font-bold tracking-widest">{cv.short_id}</td>
-                  <td className="p-4">{cv.data?.fullName}</td>
-                  <td className="p-4 capitalize">{cv.data?.gender}</td>
-                  <td className="p-4">{cv.data?.occupation || 'N/A'}</td>
-                  <td className="p-4 text-center">
+                <DataTableRow key={cv.id}>
+                  <DataTableCell className="font-mono font-medium tracking-widest text-fk-plum">
+                    {cv.short_id}
+                  </DataTableCell>
+                  <DataTableCell>{cv.data?.fullName}</DataTableCell>
+                  <DataTableCell className="capitalize">{cv.data?.gender}</DataTableCell>
+                  <DataTableCell>{cv.data?.occupation || 'N/A'}</DataTableCell>
+                  <DataTableCell>
                     <Button
+                      variant="premium"
                       size="sm"
+                      className="rounded-lg"
                       onClick={() => handleDownloadPDF(cv)}
                       disabled={downloadingId === cv.id}
                     >
                       {downloadingId === cv.id ? "Downloading..." : "Download PDF"}
                     </Button>
-                  </td>
-                </tr>
+                  </DataTableCell>
+                </DataTableRow>
               ))
             )}
           </tbody>
         </table>
-      </div>
+      </DataTable>
     </div>
   );
 }

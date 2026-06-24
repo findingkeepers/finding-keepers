@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { ShieldCheck, Heart, FileText } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { AdminStatCard } from '@/components/admin/AdminStatCard';
+import { AdminActionCard } from '@/components/admin/AdminActionCard';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -15,30 +19,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/fk-admin/login');
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile || profile.role !== 'admin') {
-        router.push('/dashboard');
-        return;
-      }
-
-      // Get pending verifications count
       const { count: pendingVerifications } = await supabase
         .from('verification_requests')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
 
-      // Get pending match requests count
       const { count: pendingMatches } = await supabase
         .from('match_requests')
         .select('*', { count: 'exact', head: true })
@@ -53,87 +38,62 @@ export default function AdminDashboard() {
     };
 
     fetchStats();
-  }, [router]);
+  }, []);
 
-  if (loading) return <div className="p-8 text-center">Loading admin dashboard...</div>;
+  if (loading) return <LoadingSpinner message="Loading admin dashboard..." />;
 
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-4xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-600">Finding Keepers Management Panel</p>
-        </div>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
-          ← Back to User Dashboard
-        </Button>
-      </div>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        title="Admin Dashboard"
+        subtitle="Finding Keepers management panel"
+        eyebrow="Administration"
+      />
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white p-6 rounded-2xl shadow">
-          <div className="text-sm text-gray-500">Pending Verifications</div>
-          <div className="text-4xl font-bold mt-2 text-yellow-600">
-            {stats.pendingVerifications}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow">
-          <div className="text-sm text-gray-500">Pending Match Requests</div>
-          <div className="text-4xl font-bold mt-2 text-blue-600">
-            {stats.pendingMatches}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow flex items-center justify-center">
-          <Button 
-            className="w-full" 
-            onClick={() => router.push('/fk-admin/verification')}
-          >
-            Go to Verifications
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Verification Requests */}
-        <div 
+      <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <AdminStatCard
+          label="Pending Verifications"
+          value={stats.pendingVerifications}
+          icon={ShieldCheck}
+          accent="amber"
+          index={0}
           onClick={() => router.push('/fk-admin/verification')}
-          className="bg-white p-8 rounded-2xl shadow hover:shadow-lg transition cursor-pointer border border-gray-100"
-        >
-          <div className="text-2xl font-semibold mb-3">Verification Requests</div>
-          <p className="text-gray-600 mb-6">
-            Review and approve new user verification requests.
-          </p>
-          <Button className="w-full">Manage Verifications</Button>
-        </div>
-
-        {/* Match Requests */}
-        <div 
+        />
+        <AdminStatCard
+          label="Pending Match Requests"
+          value={stats.pendingMatches}
+          icon={Heart}
+          accent="sky"
+          index={1}
           onClick={() => router.push('/fk-admin/matches')}
-          className="bg-white p-8 rounded-2xl shadow hover:shadow-lg transition cursor-pointer border border-gray-100"
-        >
-          <div className="text-2xl font-semibold mb-3">Match Requests</div>
-          <p className="text-gray-600 mb-6">
-            View and manage user match requests.
-          </p>
-          <Button className="w-full">Manage Matches</Button>
-        </div>
+        />
+      </div>
 
-        {/* CV Management */}
-        <div 
-          onClick={() => router.push('/fk-admin/cvs')}
-          className="bg-white p-8 rounded-2xl shadow hover:shadow-lg transition cursor-pointer border border-gray-100"
-        >
-          <div className="text-2xl font-semibold mb-3">Manage CVs</div>
-          <p className="text-gray-600 mb-6">
-            View and manage all submitted CVs.
-          </p>
-          <Button className="w-full">View All CVs</Button>
-        </div>
-
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <AdminActionCard
+          title="Verification Requests"
+          description="Review and approve new user verification requests."
+          icon={ShieldCheck}
+          actionLabel="Manage Verifications"
+          onAction={() => router.push('/fk-admin/verification')}
+          index={0}
+        />
+        <AdminActionCard
+          title="Match Requests"
+          description="View and manage user match requests."
+          icon={Heart}
+          actionLabel="Manage Matches"
+          onAction={() => router.push('/fk-admin/matches')}
+          index={1}
+        />
+        <AdminActionCard
+          title="Manage CVs"
+          description="View and manage all submitted CVs."
+          icon={FileText}
+          actionLabel="View All CVs"
+          onAction={() => router.push('/fk-admin/cvs')}
+          index={2}
+        />
       </div>
     </div>
   );

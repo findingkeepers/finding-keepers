@@ -7,12 +7,19 @@ import { Button } from '@/components/ui/button';
 import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
+import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
+import { User } from 'lucide-react';
 
 export default function MyCVPage() {
   const router = useRouter();
-  const [cv, setCv] = useState<any>(null);
+  const [cv, setCv] = useState<{ short_id: string; photo_url: string | null; data: Record<string, string> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const { onMenuClick } = useDashboardMenu();
 
   useEffect(() => {
     const fetchMyCV = async () => {
@@ -42,11 +49,7 @@ export default function MyCVPage() {
 
     setDownloading(true);
     try {
-      const blob = await pdf(
-        <CVPdf 
-          data={cv.data} 
-        />
-      ).toBlob();
+      const blob = await pdf(<CVPdf data={cv.data} />).toBlob();
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -66,16 +69,20 @@ export default function MyCVPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Loading your CV...</div>;
+  if (loading) return <LoadingSpinner message="Loading your CV..." />;
 
   if (!cv) {
     return (
-      <div className="max-w-3xl mx-auto p-8 text-center">
-        <h1 className="text-2xl font-bold mb-4">No CV Found</h1>
-        <p className="text-gray-600 mb-6">You haven't submitted a CV yet.</p>
-        <Button onClick={() => router.push('/dashboard/cv-builder')}>
-          Create CV
-        </Button>
+      <div className="mx-auto max-w-3xl">
+        <EmptyState
+          title="No CV Found"
+          description="You haven't submitted a CV yet. Create your marriage profile to get started."
+          action={
+            <Button variant="premium" className="rounded-xl" onClick={() => router.push('/dashboard/cv-builder')}>
+              Create CV
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -83,146 +90,109 @@ export default function MyCVPage() {
   const data = cv.data || {};
 
   return (
-    <div className="max-w-5xl mx-auto p-6 md:p-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">My CV</h1>
-          <p className="text-gray-600">
-            Short ID: <span className="font-mono font-bold">{cv.short_id}</span>
-          </p>
-        </div>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="My CV"
+        subtitle={`Short ID: ${cv.short_id}`}
+        eyebrow="Your Profile"
+        onMenuClick={onMenuClick}
+        actions={
+          <>
+            <Button
+              variant="premium"
+              className="rounded-xl"
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+            >
+              {downloading ? "Downloading..." : "Download PDF"}
+            </Button>
+            <Button
+              variant="premium-outline"
+              className="rounded-xl"
+              onClick={() => router.push('/dashboard/cv-builder')}
+            >
+              Edit CV
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <Button 
-            onClick={handleDownloadPDF} 
-            disabled={downloading}
-            className="w-full sm:w-auto"
-          >
-            {downloading ? "Downloading..." : "Download as PDF"}
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/dashboard/cv-builder')}
-            className="w-full sm:w-auto"
-          >
-            Edit CV
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/dashboard')}
-            className="w-full sm:w-auto"
-          >
-            ← Back to Dashboard
-          </Button>
-        </div>
-      </div>
-
-      {/* Photo */}
-      {cv.photo_url && (
+      {cv.photo_url ? (
         <div className="mb-8 flex justify-center md:justify-start">
-          <img 
-            src={cv.photo_url} 
-            alt="Your Photo" 
-            className="w-48 h-48 object-cover rounded-2xl shadow" 
+          <img
+            src={cv.photo_url}
+            alt="Your Photo"
+            className="size-48 rounded-2xl object-cover shadow-sm"
           />
+        </div>
+      ) : (
+        <div className="mb-8 flex size-48 items-center justify-center rounded-2xl bg-fk-bg-top">
+          <User className="size-16 text-fk-mauve/30" strokeWidth={1} />
         </div>
       )}
 
-      {/* Sections */}
       <div className="space-y-6">
-        {/* Basic Information */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 text-sm">
-            <div><span className="font-medium text-gray-500">Full Name:</span> {data.fullName}</div>
-            <div><span className="font-medium text-gray-500">Gender:</span> {data.gender}</div>
-            <div><span className="font-medium text-gray-500">Occupation:</span> {data.occupation || 'N/A'}</div>
-            <div><span className="font-medium text-gray-500">Education:</span> {data.education || 'N/A'}</div>
+        <CVSectionCard title="Basic Information" index={0}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <CVField label="Full Name" value={data.fullName} />
+            <CVField label="Gender" value={data.gender} />
+            <CVField label="Occupation" value={data.occupation} />
+            <CVField label="Education" value={data.education} />
           </div>
-        </div>
+        </CVSectionCard>
 
-        {/* Personality */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Personality & Individualism</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Sense of Humor:</span> {data.senseOfHumor || 'N/A'}</div>
-            <div><span className="font-medium">What motivates you:</span> {data.motivation || 'N/A'}</div>
-            <div><span className="font-medium">What you would change about yourself:</span> {data.changeAboutSelf || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Personality & Individualism" index={1}>
+          <CVField label="Sense of Humor" value={data.senseOfHumor} />
+          <CVField label="What motivates you" value={data.motivation} />
+          <CVField label="What you would change about yourself" value={data.changeAboutSelf} />
+        </CVSectionCard>
 
-        {/* Partner Preferences */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Partner Preferences</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Qualities in a partner:</span> {data.partnerQualities || 'N/A'}</div>
-            <div><span className="font-medium">Vision of a successful marriage:</span> {data.marriageVision || 'N/A'}</div>
-            <div><span className="font-medium">What you're seeking:</span> {data.whatSeeking || 'N/A'}</div>
-            <div><span className="font-medium">Partner’s Age Range:</span> {data.partnerAgeRange || 'N/A'}</div>
-            <div><span className="font-medium">Partner’s Education:</span> {data.partnerEducation || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Partner Preferences" index={2}>
+          <CVField label="Qualities in a partner" value={data.partnerQualities} />
+          <CVField label="Vision of a successful marriage" value={data.marriageVision} />
+          <CVField label="What you're seeking" value={data.whatSeeking} />
+          <CVField label="Partner's Age Range" value={data.partnerAgeRange} />
+          <CVField label="Partner's Education" value={data.partnerEducation} />
+        </CVSectionCard>
 
-        {/* Family + Lifestyle */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Family + Lifestyle & Goals</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Role of family:</span> {data.familyRole || 'N/A'}</div>
-            <div><span className="font-medium">Hobbies:</span> {data.hobbies || 'N/A'}</div>
-            <div><span className="font-medium">Long-term goals:</span> {data.longTermGoals || 'N/A'}</div>
-            <div><span className="font-medium">Ideal lifestyle as a couple:</span> {data.idealCoupleLifestyle || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Family + Lifestyle & Goals" index={3}>
+          <CVField label="Role of family" value={data.familyRole} />
+          <CVField label="Hobbies" value={data.hobbies} />
+          <CVField label="Long-term goals" value={data.longTermGoals} />
+          <CVField label="Ideal lifestyle as a couple" value={data.idealCoupleLifestyle} />
+        </CVSectionCard>
 
-        {/* Values & Faith */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Values, Religion & Faith</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Important values:</span> {data.importantValues || 'N/A'}</div>
-            <div><span className="font-medium">Faith in daily life:</span> {data.faithInDailyLife || 'N/A'}</div>
-            <div><span className="font-medium">Practicing faith with spouse:</span> {data.faithWithSpouse || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Values, Religion & Faith" index={4}>
+          <CVField label="Important values" value={data.importantValues} />
+          <CVField label="Faith in daily life" value={data.faithInDailyLife} />
+          <CVField label="Practicing faith with spouse" value={data.faithWithSpouse} />
+        </CVSectionCard>
 
-        {/* Communication */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Communication & Conflict Resolution</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Approach to conflict:</span> {data.conflictResolution || 'N/A'}</div>
-            <div><span className="font-medium">Handling disagreements:</span> {data.handleDisagreements || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Communication & Conflict Resolution" index={5}>
+          <CVField label="Approach to conflict" value={data.conflictResolution} />
+          <CVField label="Handling disagreements" value={data.handleDisagreements} />
+        </CVSectionCard>
 
-        {/* Detailed Information */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Detailed Information</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium">Self Description:</span> {data.selfDescription || 'N/A'}</div>
-            <div><span className="font-medium">Religious History:</span> {data.religiousHistory || 'N/A'}</div>
-            <div><span className="font-medium">Do you pray?:</span> {data.prayLevel || 'N/A'}</div>
-            <div><span className="font-medium">Sect / Madhab:</span> {data.sect || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Detailed Information" index={6}>
+          <CVField label="Self Description" value={data.selfDescription} />
+          <CVField label="Religious History" value={data.religiousHistory} />
+          <CVField label="Do you pray?" value={data.prayLevel} />
+          <CVField label="Sect / Madhab" value={data.sect} />
+        </CVSectionCard>
 
-        {/* Wali Info */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Guarantor / Wali</h2>
-          <div className="space-y-3 text-sm">
-            <div><span className="font-medium text-gray-500">Wali’s Name:</span> {data.waliName || 'N/A'}</div>
-            <div><span className="font-medium text-gray-500">Relationship:</span> {data.waliRelationship || 'N/A'}</div>
-            <div><span className="font-medium text-gray-500">Wali’s Phone:</span> {data.waliPhone || 'N/A'}</div>
-            <div><span className="font-medium text-gray-500">Wali’s Email:</span> {data.waliEmail || 'N/A'}</div>
-          </div>
-        </div>
+        <CVSectionCard title="Guarantor / Wali" index={7}>
+          <CVField label="Wali's Name" value={data.waliName} />
+          <CVField label="Relationship" value={data.waliRelationship} />
+          <CVField label="Wali's Phone" value={data.waliPhone} />
+          <CVField label="Wali's Email" value={data.waliEmail} />
+        </CVSectionCard>
       </div>
 
-      {/* Bottom Buttons */}
-      <div className="mt-8 flex flex-col sm:flex-row gap-3">
-        <Button onClick={handleDownloadPDF} disabled={downloading} className="w-full sm:w-auto">
+      <div className="mt-8 flex flex-wrap gap-3">
+        <Button variant="premium" className="rounded-xl" onClick={handleDownloadPDF} disabled={downloading}>
           {downloading ? "Downloading..." : "Download as PDF"}
         </Button>
-        <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full sm:w-auto">
+        <Button variant="premium-outline" className="rounded-xl" onClick={() => router.push('/dashboard')}>
           Back to Dashboard
         </Button>
       </div>

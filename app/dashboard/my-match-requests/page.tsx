@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 
 interface MatchRequest {
   id: string;
@@ -19,6 +24,7 @@ export default function MyMatchRequestsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<MatchRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const { onMenuClick } = useDashboardMenu();
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -55,52 +61,54 @@ export default function MyMatchRequestsPage() {
     fetchRequests();
   }, [router]);
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading) return <LoadingSpinner message="Loading match requests..." />;
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">My Match Requests</h1>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
-          ← Back to Dashboard
-        </Button>
-      </div>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader
+        title="My Match Requests"
+        subtitle="Track the status of your match requests."
+        onMenuClick={onMenuClick}
+      />
 
       {requests.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow p-8 text-center">
-          <p className="text-gray-600">You haven't sent any match requests yet.</p>
-        </div>
+        <EmptyState
+          title="No Match Requests Yet"
+          description="You haven't sent any match requests. Browse profiles to find your right fit."
+        />
       ) : (
-        <div className="bg-white rounded-2xl shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
+        <DataTable>
+          <table className="w-full min-w-[600px]">
+            <DataTableHead>
               <tr>
-                <th className="p-4 text-left">Date</th>
-                <th className="p-4 text-left">Profile</th>
-                <th className="p-4 text-left">Status</th>
+                <DataTableCell header>Date</DataTableCell>
+                <DataTableCell header>Profile</DataTableCell>
+                <DataTableCell header>Status</DataTableCell>
               </tr>
-            </thead>
+            </DataTableHead>
             <tbody>
-              {requests.map((req) => {
-                const isMale = req.male_short_id === requests[0]?.male_short_id; // simplistic
-                return (
-                  <tr key={req.id} className="border-t">
-                    <td className="p-4">{new Date(req.created_at).toLocaleDateString()}</td>
-                    <td className="p-4">
-                      {req.male_short_id} → {req.female_short_id}<br />
-                      <span className="text-sm text-gray-500">{req.male_name} & {req.female_name}</span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded text-xs ${req.status === 'pending' ? 'bg-yellow-100' : 'bg-green-100'}`}>
-                        {req.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {requests.map((req) => (
+                <DataTableRow key={req.id}>
+                  <DataTableCell>
+                    {new Date(req.created_at).toLocaleDateString()}
+                  </DataTableCell>
+                  <DataTableCell>
+                    <span className="font-mono font-medium text-fk-plum">
+                      {req.male_short_id} → {req.female_short_id}
+                    </span>
+                    <br />
+                    <span className="text-muted-foreground">
+                      {req.male_name} & {req.female_name}
+                    </span>
+                  </DataTableCell>
+                  <DataTableCell>
+                    <StatusBadge status={req.status} />
+                  </DataTableCell>
+                </DataTableRow>
+              ))}
             </tbody>
           </table>
-        </div>
+        </DataTable>
       )}
     </div>
   );
