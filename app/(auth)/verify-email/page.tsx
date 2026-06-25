@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,12 @@ function VerifyEmailForm() {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'confirmation_failed') {
+      toast.error("Email link expired or invalid. Enter the code from your email, or resend.");
+    }
+  }, [searchParams]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +68,7 @@ function VerifyEmailForm() {
   return (
     <AuthCard
       title="Verify Your Email"
-      subtitle="Enter the 6-digit code sent to your inbox"
+      subtitle="Enter the 6-digit code from your email (not the magic link)"
       footer={
         <p className="text-muted-foreground">
           Wrong email?{' '}

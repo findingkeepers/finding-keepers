@@ -65,7 +65,7 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${appUrl}/verify-email`,
+        emailRedirectTo: `${appUrl}/auth/confirm?next=/login`,
         data: {
           full_name,
           gender,
