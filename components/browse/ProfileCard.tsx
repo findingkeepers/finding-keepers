@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type ProfileCardProps = {
   shortId: string;
-  fullName?: string;
   occupation?: string;
   education?: string;
   photoUrl?: string | null;
@@ -17,7 +16,6 @@ type ProfileCardProps = {
 
 export function ProfileCard({
   shortId,
-  fullName,
   occupation,
   education,
   photoUrl,
@@ -53,10 +51,6 @@ export function ProfileCard({
           </div>
 
           <div className="mb-5 space-y-1.5 text-sm text-muted-foreground">
-            <p>
-              <span className="font-medium text-fk-plum">Name:</span>{" "}
-              {fullName}
-            </p>
             <p>
               <span className="font-medium text-fk-plum">Occupation:</span>{" "}
               {occupation || "N/A"}

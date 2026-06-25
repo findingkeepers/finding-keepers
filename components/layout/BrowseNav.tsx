@@ -13,7 +13,7 @@ export function BrowseNav() {
     <header className="sticky top-0 z-40 border-b border-fk-gold/15 bg-[#faf6f1]/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <Link
-          href="/"
+          href="/dashboard"
           className="fk-title text-2xl text-fk-plum-light"
         >
           Finding Keepers

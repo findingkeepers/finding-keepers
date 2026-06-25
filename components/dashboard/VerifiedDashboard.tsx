@@ -6,14 +6,14 @@ import { DashboardHeader } from "./DashboardHeader";
 import { ActionCard } from "./ActionCard";
 
 type VerifiedDashboardProps = {
-  userName: string;
+
   hasCompletedCV: boolean;
   onDeleteCV: () => void;
   onMenuClick: () => void;
 };
 
 export function VerifiedDashboard({
-  userName,
+
   hasCompletedCV,
   onDeleteCV,
   onMenuClick,
@@ -23,7 +23,6 @@ export function VerifiedDashboard({
   return (
     <div className="mx-auto w-full max-w-6xl px-0 sm:px-2">
       <DashboardHeader
-        userName={userName}
         isVerified={true}
         subtitle={
           hasCompletedCV

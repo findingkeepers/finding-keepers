@@ -57,7 +57,7 @@ export function DashboardSidebar({
     <>
       <div className="border-b border-border/60 px-6 py-8">
         <Link
-          href="/"
+          href="/dashboard"
           className="fk-title text-3xl text-fk-plum-light"
           onClick={onMobileClose}
         >

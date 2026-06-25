@@ -14,6 +14,7 @@ import { requestMatch } from '@/app/actions/match';
 import { gendersAreOpposite } from '@/lib/gender';
 import { User } from 'lucide-react';
 import { formatSelectionWithOther } from '@/lib/cv-other';
+import { hasWaliDetails, shouldShowWaliOnBrowseProfile } from '@/lib/cv-privacy';
 
 export default function ViewProfilePage() {
   const router = useRouter();
@@ -202,7 +203,6 @@ export default function ViewProfilePage() {
               <p className="font-title text-4xl tracking-[0.2em] text-fk-plum-light">{cv.short_id}</p>
             </div>
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <CVField label="Full Name" value={data.fullName} />
               <CVField label="Gender" value={data.gender} />
               <CVField label="Occupation" value={data.occupation} />
               <CVField label="Education" value={data.education} />
@@ -254,7 +254,7 @@ export default function ViewProfilePage() {
           />
         </CVSectionCard>
 
-        {(data.waliName || data.waliRelationship) && (
+        {shouldShowWaliOnBrowseProfile(data) && hasWaliDetails(data) && (
           <CVSectionCard title="Guarantor / Wali" index={6}>
             <CVField label="Wali's Name" value={data.waliName} />
             <CVField
@@ -264,6 +264,8 @@ export default function ViewProfilePage() {
                 data.waliRelationshipOther
               )}
             />
+            <CVField label="Wali's Phone" value={data.waliPhone} />
+            <CVField label="Wali's Email" value={data.waliEmail} />
           </CVSectionCard>
         )}
       </div>

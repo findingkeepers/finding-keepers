@@ -17,7 +17,6 @@ import { VerificationStepper } from "./VerificationStepper";
 export type VerificationUiStatus = "idle" | "pending" | "rejected";
 
 type VerificationSectionProps = {
-  userName: string;
   status: VerificationUiStatus;
   submitting: boolean;
   hkidNumber: string;
@@ -29,7 +28,6 @@ type VerificationSectionProps = {
 };
 
 export function VerificationSection({
-  userName,
   status,
   submitting,
   hkidNumber,
@@ -42,7 +40,6 @@ export function VerificationSection({
   return (
     <div className="mx-auto max-w-4xl">
       <DashboardHeader
-        userName={userName}
         isVerified={false}
         subtitle="Complete verification to access all features."
         onMenuClick={onMenuClick}

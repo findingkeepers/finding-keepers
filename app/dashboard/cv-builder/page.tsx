@@ -54,7 +54,7 @@ export default function CVBuilder() {
     ethnicBackground: '', ethnicBackgroundOther: '', occupation: '', education: '',
     maritalStatus: '', religiousHistory: '', prayLevel: '', sect: '', sectOther: '',
     waliInvolvement: '', waliReason: '', waliRelationship: '', waliRelationshipOther: '', waliName: '',
-    waliHKID: '', waliPhone: '', waliEmail: '', waliAddress: '',
+    waliHKID: '', waliPhone: '', waliEmail: '', waliAddress: '', showWaliOnProfile: 'no',
     shortID: '',
   });
 
@@ -513,6 +513,35 @@ export default function CVBuilder() {
       <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
       <div className="space-y-2"><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
       <div className="space-y-2"><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
+
+      <div className="space-y-2 rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4">
+        <Label>Display guarantor/wali details on your public browse profile?</Label>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="showWaliOnProfile"
+              value="yes"
+              checked={formData.showWaliOnProfile === 'yes'}
+              onChange={(e) => handleChange('showWaliOnProfile', e.target.value)}
+            />
+            Yes, show on browse profile
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="showWaliOnProfile"
+              value="no"
+              checked={formData.showWaliOnProfile === 'no'}
+              onChange={(e) => handleChange('showWaliOnProfile', e.target.value)}
+            />
+            No, keep private on browse
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Wali/guarantor details are always shared with admins when someone requests a match with you.
+        </p>
+      </div>
     </div>
   );
 

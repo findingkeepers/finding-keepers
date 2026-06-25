@@ -91,8 +91,7 @@ export default function BrowsePage() {
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(cv =>
-        cv.data?.fullName?.toLowerCase().includes(term) ||
+      result = result.filter((cv) =>
         cv.short_id?.toLowerCase().includes(term)
       );
     }
@@ -134,7 +133,7 @@ export default function BrowsePage() {
         <div className="space-y-2">
           <Label>Search</Label>
           <Input
-            placeholder="Search by name or Short ID..."
+            placeholder="Search by Short ID..."
             className="h-11 rounded-xl"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -194,7 +193,6 @@ export default function BrowsePage() {
             <ProfileCard
               key={cv.id}
               shortId={cv.short_id}
-              fullName={cv.data?.fullName}
               occupation={cv.data?.occupation}
               education={cv.data?.education}
               photoUrl={cv.photo_url}

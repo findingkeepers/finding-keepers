@@ -4,19 +4,17 @@ import { Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type DashboardHeaderProps = {
-  userName?: string;
   isVerified: boolean;
   subtitle?: string;
   onMenuClick?: () => void;
 };
 
 export function DashboardHeader({
-  userName,
   isVerified,
   subtitle,
   onMenuClick,
 }: DashboardHeaderProps) {
-  const greeting = userName ? `Welcome, ${userName}` : "Welcome";
+  const greeting = "Welcome";
 
   return (
     <header className="mb-8 flex items-start justify-between gap-4">

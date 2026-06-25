@@ -23,8 +23,6 @@ export default function Dashboard() {
   const [hkidFile, setHkidFile] = useState<File | null>(null);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
   const [hasCompletedCV, setHasCompletedCV] = useState(false);
-  const [userName, setUserName] = useState("");
-
   const { onMenuClick } = useDashboardMenu();
 
   useEffect(() => {
@@ -36,11 +34,10 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, verification_status")
+        .select("verification_status")
         .eq("id", user.id)
         .maybeSingle();
 
-      if (profile?.full_name) setUserName(profile.full_name);
       if (profile?.verification_status === "verified") {
         setIsVerified(true);
         setLoading(false);
@@ -179,7 +176,7 @@ export default function Dashboard() {
         throw insertError;
       }
 
-      const fullName = user.user_metadata?.full_name || userName;
+      const fullName = user.user_metadata?.full_name || "";
 
       if (user.email) {
         const pendingEmail = await sendVerificationPendingEmail({
@@ -273,7 +270,6 @@ export default function Dashboard() {
   if (!isVerified) {
     return (
       <VerificationSection
-        userName={userName}
         status={verificationStatus}
         submitting={submitting}
         hkidNumber={hkidNumber}
@@ -288,7 +284,6 @@ export default function Dashboard() {
 
   return (
     <VerifiedDashboard
-      userName={userName}
       hasCompletedCV={hasCompletedCV}
       onDeleteCV={handleDeleteCV}
       onMenuClick={onMenuClick}
