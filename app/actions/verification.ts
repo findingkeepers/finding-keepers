@@ -1,7 +1,11 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { isResendTestModeRestriction, sendEmail } from "@/lib/email";
+import {
+  getAdminNotificationEmail,
+  isResendTestModeRestriction,
+  sendEmail,
+} from "@/lib/email";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
 
 function getAppUrl() {
@@ -73,35 +77,132 @@ function buildVerifiedEmailHtml(fullName: string) {
   `;
 }
 
-async function sendVerifiedEmail({
+function buildInvalidatedEmailHtml(fullName: string) {
+  const appUrl = getAppUrl();
+  const displayName = fullName?.trim() || "there";
+
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Assalamualaikum, ${displayName}</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        After reviewing your verification documents, our team was unable to approve your application at this time.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        Please sign in to your dashboard, review your HKID and payment proof, and submit your verification again when you are ready.
+      </p>
+      <a href="${appUrl}/dashboard" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin-bottom: 28px;">
+        Resubmit verification
+      </a>
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid #e3cfa0;" />
+      <p style="font-family: Arial, sans-serif; font-size: 13px; color: #9ca3af; margin: 0;">
+        If you have questions, please contact our team at findingkeepers@connecthk.org.
+      </p>
+    </div>
+  `;
+}
+
+function buildAdminVerificationSubmittedEmailHtml({
+  fullName,
+  email,
+  phone,
+  hkidNumber,
+}: {
+  fullName: string;
+  email: string;
+  phone: string;
+  hkidNumber: string;
+}) {
+  const appUrl = getAppUrl();
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 24px; color: #1f2937;">
+      <h2 style="color: #4a2545; margin: 0 0 16px;">New verification request</h2>
+      <p style="font-size: 15px; line-height: 1.6; color: #374151;">
+        A member has submitted documents for manual verification.
+      </p>
+      <div style="background-color: #f7f2ec; padding: 16px; border-radius: 12px; margin: 20px 0;">
+        <p style="margin: 0 0 8px;"><strong>Name:</strong> ${fullName || "N/A"}</p>
+        <p style="margin: 0 0 8px;"><strong>Email:</strong> ${email || "N/A"}</p>
+        <p style="margin: 0 0 8px;"><strong>Phone:</strong> ${phone || "N/A"}</p>
+        <p style="margin: 0;"><strong>HKID:</strong> ${hkidNumber || "N/A"}</p>
+      </div>
+      <a href="${appUrl}/fk-admin/verification" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 10px;">
+        Review in admin panel
+      </a>
+    </div>
+  `;
+}
+
+async function sendUserStatusEmail({
   to,
   fullName,
+  kind,
 }: {
   to: string;
   fullName: string;
+  kind: "verified" | "invalidated";
 }): Promise<{ sent: boolean; message: string }> {
-  const html = buildVerifiedEmailHtml(fullName);
-  const result = await sendEmail({
-    to,
-    subject: "You're verified — welcome to Finding Keepers",
-    html,
-  });
+  const html =
+    kind === "verified"
+      ? buildVerifiedEmailHtml(fullName)
+      : buildInvalidatedEmailHtml(fullName);
+
+  const subject =
+    kind === "verified"
+      ? "You're verified — welcome to Finding Keepers"
+      : "Your Finding Keepers verification needs attention";
+
+  const result = await sendEmail({ to, subject, html });
 
   if (result.ok) {
-    return { sent: true, message: `Verification email sent to ${to}` };
+    return { sent: true, message: `Email sent to ${to}` };
   }
 
   if (isResendTestModeRestriction(result.message)) {
     return {
       sent: false,
       message:
-        "Resend test mode only allows sending to findingkeepers@connecthk.org. Verify your domain at resend.com/domains and set RESEND_FROM_EMAIL (e.g. Finding Keepers <noreply@connecthk.org>) to email users.",
+        "Resend test mode only allows sending to findingkeepers@connecthk.org. Verify your domain at resend.com/domains and set RESEND_FROM_EMAIL.",
     };
   }
 
   return {
     sent: false,
-    message: result.message || "Failed to send verification email",
+    message: result.message || "Failed to send email",
+  };
+}
+
+export async function notifyAdminsVerificationSubmitted({
+  fullName,
+  email,
+  phone,
+  hkidNumber,
+}: {
+  fullName: string;
+  email: string;
+  phone: string;
+  hkidNumber: string;
+}) {
+  const result = await sendEmail({
+    to: getAdminNotificationEmail(),
+    subject: `New verification request: ${fullName || email}`,
+    html: buildAdminVerificationSubmittedEmailHtml({
+      fullName,
+      email,
+      phone,
+      hkidNumber,
+    }),
+  });
+
+  if (result.ok) {
+    return { ok: true as const, message: "Admin team notified" };
+  }
+
+  console.error("Admin verification notification error:", result.message);
+  return {
+    ok: false as const,
+    message: result.message || "Could not notify admin team",
   };
 }
 
@@ -153,8 +254,11 @@ export async function updateVerificationStatus({
     let emailMessage = "";
     const becameVerified =
       newStatus === "verified" && previousStatus !== "verified";
+    const becameInvalidated =
+      newStatus === "invalidated" && previousStatus !== "invalidated";
+    const shouldEmailUser = becameVerified || becameInvalidated;
 
-    if (becameVerified) {
+    if (shouldEmailUser) {
       const { data: userProfile } = await supabase
         .from("profiles")
         .select("full_name, email")
@@ -162,24 +266,32 @@ export async function updateVerificationStatus({
         .single();
 
       if (userProfile?.email) {
-        const emailResult = await sendVerifiedEmail({
+        const emailResult = await sendUserStatusEmail({
           to: userProfile.email,
           fullName: userProfile.full_name,
+          kind: becameVerified ? "verified" : "invalidated",
         });
         emailSent = emailResult.sent;
         emailMessage = emailResult.message;
       } else {
-        emailMessage = "User verified but no email address found on profile";
+        emailMessage = "Status updated but no email address found on profile";
       }
     }
+
+    const statusLabel =
+      newStatus === "verified"
+        ? "verified"
+        : newStatus === "invalidated"
+          ? "invalidated"
+          : newStatus;
 
     return {
       success: true,
       emailSent,
-      message: becameVerified
+      message: shouldEmailUser
         ? emailSent
           ? emailMessage
-          : `User verified. ${emailMessage}`
+          : `User marked ${statusLabel}. ${emailMessage}`
         : `Status updated to ${newStatus}`,
     };
   } catch (error: unknown) {

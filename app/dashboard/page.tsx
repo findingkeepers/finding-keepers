@@ -10,6 +10,7 @@ import {
 } from "@/components/dashboard/VerificationSection";
 import { VerifiedDashboard } from "@/components/dashboard/VerifiedDashboard";
 import { sendVerificationPendingEmail } from "@/app/actions/auth";
+import { notifyAdminsVerificationSubmitted } from "@/app/actions/verification";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -178,11 +179,37 @@ export default function Dashboard() {
         throw insertError;
       }
 
+      const fullName = user.user_metadata?.full_name || userName;
+
       if (user.email) {
-        await sendVerificationPendingEmail({
+        const pendingEmail = await sendVerificationPendingEmail({
           email: user.email,
-          fullName: user.user_metadata?.full_name || userName,
+          fullName,
         });
+
+        if (!pendingEmail.ok) {
+          toast.warning(
+            pendingEmail.message ||
+              "Submitted, but we could not send your confirmation email."
+          );
+        }
+      }
+
+      const { data: profileForAdmin } = await supabase
+        .from("profiles")
+        .select("phone")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const adminEmail = await notifyAdminsVerificationSubmitted({
+        fullName,
+        email: user.email || "",
+        phone: profileForAdmin?.phone || "",
+        hkidNumber,
+      });
+
+      if (!adminEmail.ok) {
+        console.error("Admin verification notification failed:", adminEmail.message);
       }
 
       toast.success("Verification submitted successfully!");

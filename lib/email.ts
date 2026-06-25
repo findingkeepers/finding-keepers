@@ -17,6 +17,13 @@ function getFromAddress() {
   );
 }
 
+export function getAdminNotificationEmail() {
+  return (
+    process.env.ADMIN_NOTIFICATION_EMAIL?.trim() ||
+    "findingkeepers@connecthk.org"
+  );
+}
+
 export async function sendEmail({
   to,
   subject,

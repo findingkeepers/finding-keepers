@@ -100,8 +100,11 @@ export default function AdminVerifications() {
       return;
     }
 
-    if (newStatus === "verified" && !result.emailSent) {
-      toast.warning(result.message || "User verified but email could not be sent");
+    if (
+      (newStatus === "verified" || newStatus === "invalidated") &&
+      !result.emailSent
+    ) {
+      toast.warning(result.message || "Status updated but email could not be sent");
     } else {
       toast.success(result.message || `Status updated to ${newStatus}`);
     }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { requestPasswordReset } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,17 +19,14 @@ export default function ForgotPasswordPage() {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/reset-password`,
-    });
+    const result = await requestPasswordReset({ email });
 
-    if (error) {
-      toast.error(error.message);
+    if (!result.ok) {
+      toast.error(result.message);
     } else {
       setSent(true);
-      toast.success("Password reset link sent to your email");
+      toast.success(result.message);
     }
 
     setLoading(false);

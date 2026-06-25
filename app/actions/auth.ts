@@ -307,6 +307,107 @@ export async function resendConfirmationEmail({
   return sendSignupConfirmationEmail({ email: email.trim(), password });
 }
 
+function buildPasswordResetEmailHtml({
+  fullName,
+  resetUrl,
+}: {
+  fullName: string;
+  resetUrl: string;
+}) {
+  const displayName = fullName?.trim() || "there";
+
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Reset your password</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        Assalamualaikum ${displayName}, we received a request to reset your Finding Keepers password.
+      </p>
+      <a href="${resetUrl}" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin: 8px 0 28px;">
+        Reset password
+      </a>
+      <p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #5a4a55; margin: 0 0 8px;">
+        If the button does not work, copy and paste this link into your browser:
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #6b3563; word-break: break-all; margin: 0 0 28px;">
+        ${resetUrl}
+      </p>
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid #e3cfa0;" />
+      <p style="font-family: Arial, sans-serif; font-size: 13px; color: #9ca3af; margin: 0;">
+        If you did not request a password reset, you can safely ignore this email.
+      </p>
+    </div>
+  `;
+}
+
+export async function requestPasswordReset({ email }: { email: string }) {
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    return { ok: false as const, message: "Please enter your email address." };
+  }
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return {
+      ok: false as const,
+      message:
+        "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to your environment variables.",
+    };
+  }
+
+  const appUrl = getAppUrl();
+  const redirectTo = `${appUrl}/reset-password`;
+
+  const { data: linkData, error: linkError } =
+    await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: trimmedEmail,
+      options: { redirectTo },
+    });
+
+  if (linkError || !linkData?.properties?.action_link) {
+    console.error("Password reset link error:", linkError);
+    return {
+      ok: true as const,
+      message:
+        "If an account exists for that email, we sent a password reset link.",
+    };
+  }
+
+  const fullName =
+    (linkData.user?.user_metadata?.full_name as string | undefined) || "";
+
+  const emailResult = await sendEmail({
+    to: trimmedEmail,
+    subject: "Reset your Finding Keepers password",
+    html: buildPasswordResetEmailHtml({
+      fullName,
+      resetUrl: linkData.properties.action_link,
+    }),
+  });
+
+  if (!emailResult.ok) {
+    if (isResendTestModeRestriction(emailResult.message)) {
+      return {
+        ok: false as const,
+        message:
+          "Could not send the reset email. Check RESEND_FROM_EMAIL is set to your verified domain.",
+      };
+    }
+
+    console.error("Password reset email error:", emailResult.message);
+    return {
+      ok: false as const,
+      message: "Could not send the password reset email. Please try again shortly.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    message: "Password reset link sent to your email.",
+  };
+}
+
 export async function sendVerificationPendingEmail({
   email,
   fullName,
