@@ -14,6 +14,8 @@ import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
+import { ETHNICITY_OPTIONS, MAX_PROFILE_PHOTO_BYTES, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
+import { getStepWarnings } from '@/lib/cv-validation';
 import { useRouter } from 'next/navigation';
 
 const generateShortID = (gender: string) => {
@@ -28,6 +30,7 @@ export default function CVBuilder() {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 8;
   const [errors, setErrors] = useState<string[]>([]);
+  const [stepWarnings, setStepWarnings] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [existingCVId, setExistingCVId] = useState<string | null>(null);
 
@@ -44,7 +47,7 @@ export default function CVBuilder() {
     importantValues: '', beliefsShapeLife: '', faithInDailyLife: '', 
     prayerCommunityRole: '', faithWithSpouse: '', raisingChildrenIslamic: '',
     conflictResolution: '', handleStress: '', handleDisagreements: '', communicationRole: '',
-    selfDescription: '', residencyStatus: '', occupation: '', education: '',
+    selfDescription: '', residencyStatus: '', ethnicBackground: '', occupation: '', education: '',
     maritalStatus: '', religiousHistory: '', prayLevel: '', sect: '',
     waliInvolvement: '', waliReason: '', waliRelationship: '', waliName: '',
     waliHKID: '', waliPhone: '', waliEmail: '', waliAddress: '',
@@ -129,9 +132,20 @@ export default function CVBuilder() {
     }
   };
 
+  useEffect(() => {
+    setStepWarnings(getStepWarnings(currentStep, formData));
+  }, [currentStep, formData]);
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      toast.error("Photo must be 2 MB or smaller");
+      e.target.value = '';
+      return;
+    }
+
     setPhoto(file);
 
     try {
@@ -177,6 +191,7 @@ export default function CVBuilder() {
       errorsList.push("Self description must be at least 100 characters");
     }
     if (!formData.residencyStatus) errorsList.push("Residency Status is required");
+    if (!formData.ethnicBackground) errorsList.push("Ethnic background is required");
     if (!formData.occupation.trim()) errorsList.push("Occupation is required");
     if (!formData.education) errorsList.push("Education level is required");
     if (!formData.maritalStatus) errorsList.push("Marital Status is required");
@@ -283,7 +298,27 @@ export default function CVBuilder() {
         </p>
       </div>
       <div className="space-y-2"><Label>HKID Number</Label><Input value={formData.hkidNumber} onChange={(e) => handleChange('hkidNumber', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Profile Photo (Optional)</Label><Input type="file" accept="image/*" onChange={handlePhotoUpload} /></div>
+      <div className="space-y-2">
+        <Label>Profile Photo (Optional)</Label>
+        <div className="rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4 text-sm leading-relaxed text-fk-body">
+          <p>
+            Upload a recent, modest photo of yourself that reflects Islamic values of haya.
+            Please ensure the picture includes only you and is appropriate for a respectful matrimony setting.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Accepted formats: JPG, PNG · Maximum size: 2 MB (2048 KB)
+          </p>
+          <div className="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-fk-gold/30 bg-white/60 p-3">
+            <div className="flex size-14 items-center justify-center rounded-full bg-fk-plum/10 text-xs font-medium text-fk-plum">
+              Example
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Head-and-shoulders portrait, plain background, modest dress, no group photos or filters.
+            </p>
+          </div>
+        </div>
+        <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} />
+      </div>
       {formData.photoUrl && <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>}
     </div>
   );
@@ -292,8 +327,18 @@ export default function CVBuilder() {
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 2: Detailed Information</h2>
       <div className="space-y-2"><Label>Short description of yourself (Minimum 100 words)</Label><Textarea value={formData.selfDescription} onChange={(e) => handleChange('selfDescription', e.target.value)} rows={5} /></div>
+      <div className="space-y-2">
+        <Label>Your Ethnic Background</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+          {ETHNICITY_OPTIONS.map((opt) => (
+            <label key={opt} className="flex items-center gap-2">
+              <input type="radio" name="ethnicBackground" value={opt} checked={formData.ethnicBackground === opt} onChange={(e) => handleChange('ethnicBackground', e.target.value)} /> {opt}
+            </label>
+          ))}
+        </div>
+      </div>
       <div className="space-y-2"><Label>Residency Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        {["Permanent Resident", "Student", "Work Visa", "Other"].map(opt => (
+        {RESIDENCY_OPTIONS.map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="residencyStatus" value={opt} checked={formData.residencyStatus === opt} onChange={(e) => handleChange('residencyStatus', e.target.value)} /> {opt}</label>
         ))}
       </div></div>
@@ -454,6 +499,15 @@ export default function CVBuilder() {
           {currentStep === 6 && renderStep6()}
           {currentStep === 7 && renderStep7()}
           {currentStep === 8 && renderStep8()}
+
+          {stepWarnings.length > 0 && (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="mb-2 font-semibold text-amber-800">Please complete on this step:</p>
+              <ul className="list-inside list-disc space-y-1 text-sm text-amber-800">
+                {stepWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+              </ul>
+            </div>
+          )}
 
           {errors.length > 0 && (
             <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">

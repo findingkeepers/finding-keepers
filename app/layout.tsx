@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Jost, Mulish } from "next/font/google";
 import { Toaster } from "sonner";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import "./globals.css";
 
 const mulish = Mulish({
@@ -39,7 +40,8 @@ export default function RootLayout({
       className={`${mulish.variable} ${jost.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
-        {children}
+        <div className="flex min-h-full flex-1 flex-col">{children}</div>
+        <SiteFooter />
         <Toaster
           position="top-center"
           toastOptions={{

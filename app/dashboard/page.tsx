@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useDashboardMenu } from "@/components/dashboard/DashboardLayoutProvider";
 import { VerificationSection } from "@/components/dashboard/VerificationSection";
 import { VerifiedDashboard } from "@/components/dashboard/VerifiedDashboard";
+import { sendVerificationPendingEmail } from "@/app/actions/auth";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,17 @@ export default function Dashboard() {
 
       if (profile?.full_name) setUserName(profile.full_name);
       if (profile?.verification_status === "verified") setIsVerified(true);
+
+      const { data: existingRequest } = await supabase
+        .from("verification_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .in("status", ["pending", "verified"])
+        .maybeSingle();
+
+      if (existingRequest?.status === "pending") {
+        setSubmitted(true);
+      }
 
       setLoading(false);
     };
@@ -78,6 +90,23 @@ export default function Dashboard() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
 
+      const { data: existingRequest } = await supabase
+        .from("verification_requests")
+        .select("id, status")
+        .eq("user_id", user.id)
+        .in("status", ["pending", "verified"])
+        .maybeSingle();
+
+      if (existingRequest) {
+        toast.error(
+          existingRequest.status === "pending"
+            ? "You already have a verification request under review"
+            : "Your account is already verified"
+        );
+        setSubmitting(false);
+        return;
+      }
+
       await supabase.from("profiles").upsert(
         {
           id: user.id,
@@ -112,6 +141,13 @@ export default function Dashboard() {
         });
 
       if (insertError) throw insertError;
+
+      if (user.email) {
+        await sendVerificationPendingEmail({
+          email: user.email,
+          fullName: user.user_metadata?.full_name || userName,
+        });
+      }
 
       toast.success("Verification submitted successfully!");
       setSubmitted(true);

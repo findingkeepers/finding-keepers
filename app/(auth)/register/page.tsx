@@ -4,15 +4,22 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { checkPhoneAvailable } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { AuthCard } from '@/components/layout/AuthCard';
+import { TermsAgreement } from '@/components/auth/TermsAgreement';
+import { PasswordStrength } from '@/components/ui/password-strength';
+import { isPasswordStrongEnough } from '@/lib/password';
+import { normalizePhone } from '@/lib/phone';
 import { toast } from 'sonner';
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
+  const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -21,12 +28,23 @@ export default function RegisterPage() {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
     const full_name = formData.get('full_name') as string;
     const gender = formData.get('gender') as string;
     const phone = formData.get('phone') as string;
     const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
+
+    if (!termsAccepted) {
+      toast.error("Please accept the Terms and Conditions");
+      setLoading(false);
+      return;
+    }
+
+    if (!isPasswordStrongEnough(password)) {
+      toast.error("Please choose a stronger password");
+      setLoading(false);
+      return;
+    }
 
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
@@ -34,26 +52,48 @@ export default function RegisterPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const phoneCheck = await checkPhoneAvailable(phone);
+    if (!phoneCheck.available) {
+      toast.error(phoneCheck.message || "This phone number is already registered");
+      setLoading(false);
+      return;
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${appUrl}/verify-email`,
         data: {
-          full_name: full_name,
-          gender: gender,
-          phone: phone || '',
-          is_permanent_resident: is_permanent_resident,
-        }
-      }
+          full_name,
+          gender,
+          phone: normalizePhone(phone),
+          is_permanent_resident,
+        },
+      },
     });
 
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success("Account created successfully! Please check your email to confirm.");
-      router.push('/login');
+      setLoading(false);
+      return;
     }
 
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email,
+        full_name,
+        gender,
+        phone: normalizePhone(phone),
+        verification_status: 'unverified',
+      });
+    }
+
+    toast.success("Account created! Enter the verification code sent to your email.");
+    router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     setLoading(false);
   };
 
@@ -82,15 +122,23 @@ export default function RegisterPage() {
           <Input id="email" name="email" type="email" placeholder="you@example.com" className="h-11 rounded-xl" required />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" className="h-11 rounded-xl" required minLength={6} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input id="confirmPassword" name="confirmPassword" type="password" className="h-11 rounded-xl" required minLength={6} />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            className="h-11 rounded-xl"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <PasswordStrength password={password} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Input id="confirmPassword" name="confirmPassword" type="password" className="h-11 rounded-xl" required />
         </div>
 
         <div className="space-y-2">
@@ -115,6 +163,8 @@ export default function RegisterPage() {
             <option value="no">No</option>
           </Select>
         </div>
+
+        <TermsAgreement checked={termsAccepted} onCheckedChange={setTermsAccepted} />
 
         <Button type="submit" variant="premium" className="h-11 w-full rounded-xl" disabled={loading}>
           {loading ? "Creating Account..." : "Create Account"}

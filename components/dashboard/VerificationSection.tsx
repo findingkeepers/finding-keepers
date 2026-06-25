@@ -140,8 +140,8 @@ export function VerificationSection({
                 Verification Submitted
               </h3>
               <p className="mt-2 text-emerald-700">
-                Our admin team will review your documents soon. You&apos;ll
-                receive access once approved.
+                Our admin team will review your documents within 24–48 hours.
+                You will receive an email once your verification is approved.
               </p>
             </CardContent>
           </Card>

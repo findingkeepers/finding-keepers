@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ProfileCard } from '@/components/browse/ProfileCard';
+import { ETHNICITY_OPTIONS, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
 import { getOppositeProfileGender, normalizeToProfileGender } from '@/lib/gender';
 
 interface CV {
@@ -28,8 +30,9 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [occupationFilter, setOccupationFilter] = useState('');
-  const [educationFilter, setEducationFilter] = useState('');
+  const [ethnicityFilter, setEthnicityFilter] = useState('');
+  const [visaFilter, setVisaFilter] = useState('');
+  const [employmentFilter, setEmploymentFilter] = useState('');
 
   useEffect(() => {
     const fetchOppositeGenderCVs = async () => {
@@ -94,20 +97,22 @@ export default function BrowsePage() {
       );
     }
 
-    if (occupationFilter) {
-      result = result.filter(cv =>
-        cv.data?.occupation?.toLowerCase().includes(occupationFilter.toLowerCase())
-      );
+    if (ethnicityFilter) {
+      result = result.filter(cv => cv.data?.ethnicBackground === ethnicityFilter);
     }
 
-    if (educationFilter) {
+    if (visaFilter) {
+      result = result.filter(cv => cv.data?.residencyStatus === visaFilter);
+    }
+
+    if (employmentFilter) {
       result = result.filter(cv =>
-        cv.data?.education?.toLowerCase().includes(educationFilter.toLowerCase())
+        cv.data?.occupation?.toLowerCase().includes(employmentFilter.toLowerCase())
       );
     }
 
     setFilteredCVs(result);
-  }, [searchTerm, occupationFilter, educationFilter, cvs]);
+  }, [searchTerm, ethnicityFilter, visaFilter, employmentFilter, cvs]);
 
   if (loading) {
     return (
@@ -125,7 +130,7 @@ export default function BrowsePage() {
         eyebrow="Find Your Match"
       />
 
-      <FilterBar>
+      <FilterBar columns={3}>
         <div className="space-y-2">
           <Label>Search</Label>
           <Input
@@ -136,31 +141,41 @@ export default function BrowsePage() {
           />
         </div>
         <div className="space-y-2">
-          <Label>Occupation</Label>
+          <Label>Ethnicity</Label>
+          <Select value={ethnicityFilter} onChange={(e) => setEthnicityFilter(e.target.value)}>
+            <option value="">All ethnicities</option>
+            {ETHNICITY_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Visa Status</Label>
+          <Select value={visaFilter} onChange={(e) => setVisaFilter(e.target.value)}>
+            <option value="">All visa statuses</option>
+            {RESIDENCY_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Employment</Label>
           <Input
             placeholder="Filter by occupation..."
             className="h-11 rounded-xl"
-            value={occupationFilter}
-            onChange={(e) => setOccupationFilter(e.target.value)}
+            value={employmentFilter}
+            onChange={(e) => setEmploymentFilter(e.target.value)}
           />
         </div>
-        <div className="space-y-2">
-          <Label>Education</Label>
-          <Input
-            placeholder="Filter by education..."
-            className="h-11 rounded-xl"
-            value={educationFilter}
-            onChange={(e) => setEducationFilter(e.target.value)}
-          />
-        </div>
-        <div className="flex items-end">
+        <div className="flex items-end md:col-span-2">
           <Button
             variant="premium-outline"
             className="h-11 w-full rounded-xl"
             onClick={() => {
               setSearchTerm('');
-              setOccupationFilter('');
-              setEducationFilter('');
+              setEthnicityFilter('');
+              setVisaFilter('');
+              setEmploymentFilter('');
             }}
           >
             Clear Filters
