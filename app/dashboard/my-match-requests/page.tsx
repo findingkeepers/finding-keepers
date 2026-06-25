@@ -9,13 +9,13 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
+import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
 
 interface MatchRequest {
   id: string;
   male_short_id: string;
   female_short_id: string;
-  male_name: string;
-  female_name: string;
+  requested_by_short_id?: string | null;
   status: string;
   created_at: string;
 }
@@ -23,6 +23,7 @@ interface MatchRequest {
 export default function MyMatchRequestsPage() {
   const router = useRouter();
   const [requests, setRequests] = useState<MatchRequest[]>([]);
+  const [myShortId, setMyShortId] = useState('');
   const [loading, setLoading] = useState(true);
   const { onMenuClick } = useDashboardMenu();
 
@@ -44,6 +45,8 @@ export default function MyMatchRequestsPage() {
         setLoading(false);
         return;
       }
+
+      setMyShortId(myCV.short_id);
 
       const { data, error } = await supabase
         .from('match_requests')
@@ -82,7 +85,7 @@ export default function MyMatchRequestsPage() {
             <DataTableHead>
               <tr>
                 <DataTableCell header>Date</DataTableCell>
-                <DataTableCell header>Profile</DataTableCell>
+                <DataTableCell header>Request</DataTableCell>
                 <DataTableCell header>Status</DataTableCell>
               </tr>
             </DataTableHead>
@@ -93,13 +96,12 @@ export default function MyMatchRequestsPage() {
                     {new Date(req.created_at).toLocaleDateString()}
                   </DataTableCell>
                   <DataTableCell>
-                    <span className="font-mono font-medium text-fk-plum">
-                      {req.male_short_id} → {req.female_short_id}
-                    </span>
-                    <br />
-                    <span className="text-muted-foreground">
-                      {req.male_name} & {req.female_name}
-                    </span>
+                    <MatchDirectionDisplay
+                      maleShortId={req.male_short_id}
+                      femaleShortId={req.female_short_id}
+                      requestedByShortId={req.requested_by_short_id}
+                      highlightId={myShortId}
+                    />
                   </DataTableCell>
                   <DataTableCell>
                     <StatusBadge status={req.status} />

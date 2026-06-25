@@ -87,6 +87,7 @@ export async function requestMatch({
       female_short_id: isRequesterMale ? requestedShortId : requesterShortId,
       male_name: isRequesterMale ? requesterName : requestedName,
       female_name: isRequesterMale ? requestedName : requesterName,
+      requested_by_short_id: requesterShortId,
       status: 'pending'
     });
 

@@ -29,3 +29,7 @@ GRANT EXECUTE ON FUNCTION public.check_phone_available(text) TO anon, authentica
 CREATE UNIQUE INDEX IF NOT EXISTS verification_requests_one_pending_per_user
 ON public.verification_requests (user_id)
 WHERE status = 'pending';
+
+-- 3) Track who initiated each match request (for direction arrows in admin/user UI)
+ALTER TABLE public.match_requests
+ADD COLUMN IF NOT EXISTS requested_by_short_id text;

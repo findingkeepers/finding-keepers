@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
+import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
 
 interface MatchRequest {
   id: string;
@@ -19,6 +20,7 @@ interface MatchRequest {
   female_short_id: string;
   male_name: string;
   female_name: string;
+  requested_by_short_id?: string | null;
   status: string;
   created_at: string;
 }
@@ -145,8 +147,7 @@ export default function AdminMatchesPage() {
           <DataTableHead>
             <tr>
               <DataTableCell header>Submitted</DataTableCell>
-              <DataTableCell header>Male (MID)</DataTableCell>
-              <DataTableCell header>Female (FID)</DataTableCell>
+              <DataTableCell header>Request Direction</DataTableCell>
               <DataTableCell header>Status</DataTableCell>
               <DataTableCell header>Action</DataTableCell>
             </tr>
@@ -154,7 +155,7 @@ export default function AdminMatchesPage() {
           <tbody>
             {filteredRequests.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                <td colSpan={4} className="p-8 text-center text-muted-foreground">
                   No match requests found.
                 </td>
               </tr>
@@ -165,14 +166,14 @@ export default function AdminMatchesPage() {
                     {new Date(req.created_at).toLocaleString()}
                   </DataTableCell>
                   <DataTableCell>
-                    <span className="font-mono font-medium text-fk-plum">{req.male_short_id}</span>
-                    <br />
-                    <span className="text-sm text-muted-foreground">{req.male_name}</span>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <span className="font-mono font-medium text-fk-plum">{req.female_short_id}</span>
-                    <br />
-                    <span className="text-sm text-muted-foreground">{req.female_name}</span>
+                    <MatchDirectionDisplay
+                      maleShortId={req.male_short_id}
+                      femaleShortId={req.female_short_id}
+                      requestedByShortId={req.requested_by_short_id}
+                      maleName={req.male_name}
+                      femaleName={req.female_name}
+                      showNames
+                    />
                   </DataTableCell>
                   <DataTableCell>
                     <StatusBadge status={req.status} />
