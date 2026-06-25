@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label";
 import { DashboardHeader } from "./DashboardHeader";
 import { VerificationStepper } from "./VerificationStepper";
 
+export type VerificationUiStatus = "idle" | "pending" | "rejected";
+
 type VerificationSectionProps = {
   userName: string;
-  submitted: boolean;
+  status: VerificationUiStatus;
   submitting: boolean;
   hkidNumber: string;
   onHkidNumberChange: (value: string) => void;
@@ -28,7 +30,7 @@ type VerificationSectionProps = {
 
 export function VerificationSection({
   userName,
-  submitted,
+  status,
   submitting,
   hkidNumber,
   onHkidNumberChange,
@@ -62,20 +64,54 @@ export function VerificationSection({
         <VerificationStepper />
       </motion.div>
 
-      {!submitted ? (
+      {status === "pending" ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+        >
+          <Card className="border-amber-200 bg-amber-50/50">
+            <CardContent className="py-10 text-center">
+              <h3 className="font-sans text-xl font-medium text-amber-900">
+                Verification Under Review
+              </h3>
+              <p className="mt-2 text-amber-800">
+                Your documents have been submitted and are awaiting admin review.
+                You cannot submit again while your application is pending.
+              </p>
+              <p className="mt-2 text-sm text-amber-700">
+                Our team typically reviews within 24–48 hours. You will receive an
+                email once a decision is made.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
         >
+          {status === "rejected" && (
+            <Card className="mb-6 border-red-200 bg-red-50/60">
+              <CardContent className="py-5">
+                <p className="font-medium text-red-800">
+                  Your previous verification was not approved.
+                </p>
+                <p className="mt-1 text-sm text-red-700">
+                  Please review your documents and submit again below.
+                </p>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-xl text-fk-plum">
-                Complete Your Verification
+                {status === "rejected" ? "Resubmit Verification" : "Complete Your Verification"}
               </CardTitle>
               <CardDescription>
                 Upload your documents below. Our team will review them within
-                24–48 hours.
+                24–48 hours. You may only have one active submission at a time.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -125,24 +161,6 @@ export function VerificationSection({
                   {submitting ? "Submitting..." : "Submit for Verification"}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <Card className="border-emerald-200 bg-emerald-50/50">
-            <CardContent className="py-10 text-center">
-              <h3 className="font-sans text-xl font-medium text-emerald-800">
-                Verification Submitted
-              </h3>
-              <p className="mt-2 text-emerald-700">
-                Our admin team will review your documents within 24–48 hours.
-                You will receive an email once your verification is approved.
-              </p>
             </CardContent>
           </Card>
         </motion.div>

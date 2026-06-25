@@ -4,15 +4,19 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useDashboardMenu } from "@/components/dashboard/DashboardLayoutProvider";
-import { VerificationSection } from "@/components/dashboard/VerificationSection";
+import {
+  VerificationSection,
+  type VerificationUiStatus,
+} from "@/components/dashboard/VerificationSection";
 import { VerifiedDashboard } from "@/components/dashboard/VerifiedDashboard";
 import { sendVerificationPendingEmail } from "@/app/actions/auth";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationUiStatus>("idle");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const [hkidNumber, setHkidNumber] = useState("");
   const [hkidFile, setHkidFile] = useState<File | null>(null);
@@ -36,17 +40,26 @@ export default function Dashboard() {
         .maybeSingle();
 
       if (profile?.full_name) setUserName(profile.full_name);
-      if (profile?.verification_status === "verified") setIsVerified(true);
+      if (profile?.verification_status === "verified") {
+        setIsVerified(true);
+        setLoading(false);
+        return;
+      }
 
-      const { data: existingRequest } = await supabase
+      const { data: latestRequest } = await supabase
         .from("verification_requests")
         .select("status")
         .eq("user_id", user.id)
-        .in("status", ["pending", "verified"])
+        .order("submitted_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (existingRequest?.status === "pending") {
-        setSubmitted(true);
+      if (latestRequest?.status === "pending") {
+        setVerificationStatus("pending");
+      } else if (latestRequest?.status === "invalidated") {
+        setVerificationStatus("rejected");
+      } else {
+        setVerificationStatus("idle");
       }
 
       setLoading(false);
@@ -77,6 +90,11 @@ export default function Dashboard() {
   const handleVerificationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (verificationStatus === "pending") {
+      toast.error("You already have a verification request under review");
+      return;
+    }
+
     if (!hkidNumber || !hkidFile || !paymentFile) {
       toast.error("Please fill all fields and upload both files");
       return;
@@ -90,19 +108,29 @@ export default function Dashboard() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
 
-      const { data: existingRequest } = await supabase
+      const { data: pendingRequest } = await supabase
         .from("verification_requests")
-        .select("id, status")
+        .select("id")
         .eq("user_id", user.id)
-        .in("status", ["pending", "verified"])
+        .eq("status", "pending")
         .maybeSingle();
 
-      if (existingRequest) {
-        toast.error(
-          existingRequest.status === "pending"
-            ? "You already have a verification request under review"
-            : "Your account is already verified"
-        );
+      if (pendingRequest) {
+        toast.error("You already have a verification request under review");
+        setVerificationStatus("pending");
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("verification_status")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.verification_status === "verified") {
+        toast.error("Your account is already verified");
+        setIsVerified(true);
         setSubmitting(false);
         return;
       }
@@ -140,7 +168,15 @@ export default function Dashboard() {
           status: "pending",
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        if (insertError.code === "23505") {
+          toast.error("You already have a verification request under review");
+          setVerificationStatus("pending");
+          setSubmitting(false);
+          return;
+        }
+        throw insertError;
+      }
 
       if (user.email) {
         await sendVerificationPendingEmail({
@@ -150,7 +186,9 @@ export default function Dashboard() {
       }
 
       toast.success("Verification submitted successfully!");
-      setSubmitted(true);
+      setVerificationStatus("pending");
+      setHkidFile(null);
+      setPaymentFile(null);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to submit verification";
@@ -209,7 +247,7 @@ export default function Dashboard() {
     return (
       <VerificationSection
         userName={userName}
-        submitted={submitted}
+        status={verificationStatus}
         submitting={submitting}
         hkidNumber={hkidNumber}
         onHkidNumberChange={setHkidNumber}
