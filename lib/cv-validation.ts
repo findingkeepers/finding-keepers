@@ -4,44 +4,167 @@ function wordCount(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
+function requireText(
+  warnings: string[],
+  value: string | undefined,
+  label: string
+) {
+  if (!value?.trim()) {
+    warnings.push(`${label} is required`);
+  }
+}
+
+function requireSelection(
+  warnings: string[],
+  value: string | undefined,
+  label: string
+) {
+  if (!value?.trim()) {
+    warnings.push(`${label} is required`);
+  }
+}
+
 export function getStepWarnings(step: number, data: FormData): string[] {
   const warnings: string[] = [];
 
   switch (step) {
     case 1:
-      if (!data.fullName?.trim()) warnings.push("Full Name is required");
-      if (!data.gender) warnings.push("Gender is required");
-      if (!data.hkidNumber?.trim()) warnings.push("HKID Number is required");
+      requireText(warnings, data.fullName, "Full Name");
+      requireSelection(warnings, data.gender, "Gender");
+      requireText(warnings, data.hkidNumber, "HKID Number");
       break;
+
     case 2:
       if (!data.selfDescription?.trim() || wordCount(data.selfDescription) < 100) {
         warnings.push("Self description must be at least 100 words");
       }
-      if (!data.residencyStatus) warnings.push("Residency Status is required");
-      if (!data.ethnicBackground) warnings.push("Ethnic background is required");
-      if (!data.occupation?.trim()) warnings.push("Occupation is required");
-      if (!data.education) warnings.push("Education level is required");
-      if (!data.maritalStatus) warnings.push("Marital Status is required");
-      if (!data.religiousHistory) warnings.push("Religious History is required");
-      if (!data.prayLevel) warnings.push("Please select how often you pray");
-      if (!data.sect) warnings.push("Please select your Sect/Madhab");
+      requireSelection(warnings, data.residencyStatus, "Residency Status");
+      requireSelection(warnings, data.ethnicBackground, "Ethnic background");
+      requireText(warnings, data.occupation, "Occupation");
+      requireSelection(warnings, data.education, "Education level");
+      requireSelection(warnings, data.maritalStatus, "Marital Status");
+      requireSelection(warnings, data.religiousHistory, "Religious History");
+      requireSelection(warnings, data.prayLevel, "How often you pray");
+      requireSelection(warnings, data.sect, "Sect/Madhab");
       break;
+
     case 3:
-      if (!data.senseOfHumor?.trim()) warnings.push("Sense of humor is required");
-      if (!data.motivation?.trim()) warnings.push("What motivates you is required");
-      if (!data.changeAboutSelf?.trim()) warnings.push("What you would change about yourself is required");
-      if (!data.peopleGetAlongWith?.trim()) warnings.push("Types of people you get along with is required");
+      requireText(warnings, data.senseOfHumor, "Sense of humor");
+      requireText(warnings, data.motivation, "What motivates you");
+      requireText(warnings, data.changeAboutSelf, "What you would change about yourself");
+      requireText(warnings, data.peopleGetAlongWith, "Types of people you get along with");
       break;
+
     case 4:
-      if (!data.partnerQualities?.trim()) warnings.push("Partner qualities are required");
-      if (!data.marriageVision?.trim()) warnings.push("Marriage vision is required");
-      if (!data.whatSeeking?.trim() || data.whatSeeking.length < 100) {
+      requireText(warnings, data.partnerQualities, "Partner qualities");
+      requireText(warnings, data.marriageVision, "Marriage vision");
+      requireText(
+        warnings,
+        data.sharedInterestsImportance,
+        "Importance of sharing similar interests"
+      );
+      requireText(
+        warnings,
+        data.partnershipGrowth,
+        "How partnership contributes to personal growth"
+      );
+      requireText(warnings, data.dealBreakers, "Deal breakers");
+      if (!data.whatSeeking?.trim() || data.whatSeeking.trim().length < 100) {
         warnings.push("What you are seeking must be at least 100 characters");
       }
+      requireSelection(warnings, data.partnerAgeRange, "Partner's age range");
+      requireSelection(warnings, data.partnerEducation, "Partner's education");
+      requireSelection(
+        warnings,
+        data.partnerEthnicBackground,
+        "Partner's ethnic background"
+      );
       break;
+
+    case 5:
+      requireText(warnings, data.familyRole, "Role your family plays in your life");
+      requireText(
+        warnings,
+        data.closestFamilyMember,
+        "Who you are closest to in your family"
+      );
+      requireText(warnings, data.hobbies, "Hobbies");
+      requireText(
+        warnings,
+        data.favoriteBooksMovies,
+        "Favorite books or movies"
+      );
+      requireText(warnings, data.hangoutWithFriends, "How often you hang out with friends");
+      requireText(warnings, data.relaxMethod, "How you relax or unwind");
+      requireText(warnings, data.longTermGoals, "Long-term goals");
+      requireText(
+        warnings,
+        data.idealCoupleLifestyle,
+        "Ideal lifestyle as a couple"
+      );
+      requireText(warnings, data.selfImprovement, "How you improve yourself");
+      requireText(warnings, data.workLifeBalance, "Work-life balance");
+      break;
+
+    case 6:
+      requireText(warnings, data.importantValues, "Important values in life");
+      requireText(
+        warnings,
+        data.beliefsShapeLife,
+        "How beliefs shape daily activities"
+      );
+      requireText(
+        warnings,
+        data.faithInDailyLife,
+        "How you incorporate faith into daily life"
+      );
+      requireText(
+        warnings,
+        data.prayerCommunityRole,
+        "Role of prayer and community"
+      );
+      requireText(
+        warnings,
+        data.faithWithSpouse,
+        "Practicing faith with your future spouse"
+      );
+      requireText(
+        warnings,
+        data.raisingChildrenIslamic,
+        "Raising children with Islamic values"
+      );
+      break;
+
+    case 7:
+      requireText(warnings, data.conflictResolution, "Approach to conflict resolution");
+      requireText(warnings, data.handleStress, "How you handle stress");
+      requireText(
+        warnings,
+        data.handleDisagreements,
+        "How you handle disagreements"
+      );
+      requireText(
+        warnings,
+        data.communicationRole,
+        "Role of communication in resolving issues"
+      );
+      break;
+
     case 8:
-      if (!data.waliInvolvement) warnings.push("Wali involvement selection is required");
+      requireSelection(warnings, data.waliInvolvement, "Wali involvement");
+      requireText(
+        warnings,
+        data.waliReason,
+        'Wali reason (enter "N/A" if not applicable)'
+      );
+      requireSelection(warnings, data.waliRelationship, "Wali's relationship to you");
+      requireText(warnings, data.waliName, "Wali's name");
+      requireText(warnings, data.waliHKID, "Wali's HKID / Passport number");
+      requireText(warnings, data.waliPhone, "Wali's phone number");
+      requireText(warnings, data.waliEmail, "Wali's email");
+      requireText(warnings, data.waliAddress, "Wali's home address");
       break;
+
     default:
       break;
   }

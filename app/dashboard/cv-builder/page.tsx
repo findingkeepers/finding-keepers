@@ -15,7 +15,7 @@ import { CVPdf } from '@/components/CVPdf';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import { ETHNICITY_OPTIONS, MAX_PROFILE_PHOTO_BYTES, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
-import { getStepWarnings } from '@/lib/cv-validation';
+import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import { useRouter } from 'next/navigation';
 
 const generateShortID = (gender: string) => {
@@ -165,6 +165,14 @@ export default function CVBuilder() {
   };
 
   const nextStep = () => {
+    const warnings = getStepWarnings(currentStep, formData);
+    setStepWarnings(warnings);
+
+    if (warnings.length > 0) {
+      toast.error("Please complete all required fields on this step");
+      return;
+    }
+
     if (currentStep < totalSteps) setCurrentStep(currentStep + 1);
   };
 
@@ -172,42 +180,15 @@ export default function CVBuilder() {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
-  const validateForm = () => {
-    const errorsList: string[] = [];
-
-    if (!formData.fullName.trim()) errorsList.push("Full Name is required");
-    if (!formData.gender) errorsList.push("Please select your Gender");
-    if (!formData.hkidNumber.trim()) errorsList.push("HKID Number is required");
-    if (!formData.senseOfHumor.trim()) errorsList.push("Sense of humor is required");
-    if (!formData.motivation.trim()) errorsList.push("What motivates you is required");
-    if (!formData.changeAboutSelf.trim()) errorsList.push("What you would change about yourself is required");
-    if (!formData.peopleGetAlongWith.trim()) errorsList.push("Types of people you get along with is required");
-    if (!formData.partnerQualities.trim()) errorsList.push("Qualities you value in a partner is required");
-    if (!formData.marriageVision.trim()) errorsList.push("Your vision of a successful marriage is required");
-    if (!formData.whatSeeking.trim() || formData.whatSeeking.length < 100) {
-      errorsList.push("What you are seeking must be at least 100 characters");
-    }
-    if (!formData.selfDescription.trim() || formData.selfDescription.length < 100) {
-      errorsList.push("Self description must be at least 100 characters");
-    }
-    if (!formData.residencyStatus) errorsList.push("Residency Status is required");
-    if (!formData.ethnicBackground) errorsList.push("Ethnic background is required");
-    if (!formData.occupation.trim()) errorsList.push("Occupation is required");
-    if (!formData.education) errorsList.push("Education level is required");
-    if (!formData.maritalStatus) errorsList.push("Marital Status is required");
-    if (!formData.religiousHistory) errorsList.push("Religious History is required");
-    if (!formData.prayLevel) errorsList.push("Please select how often you pray");
-    if (!formData.sect) errorsList.push("Please select your Sect/Madhab");
-    if (!formData.waliInvolvement) errorsList.push("Wali involvement selection is required");
-
-    return errorsList;
-  };
-
   const handleSubmit = async () => {
-    const validationErrors = validateForm();
+    const validationErrors = validateFullForm(formData);
     setErrors(validationErrors);
+    setStepWarnings(getStepWarnings(currentStep, formData));
 
-    if (validationErrors.length > 0) return;
+    if (validationErrors.length > 0) {
+      toast.error("Please complete all required fields before submitting");
+      return;
+    }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
