@@ -1,7 +1,8 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/email";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isResendTestModeRestriction, sendEmail } from "@/lib/email";
 import { normalizePhone } from "@/lib/phone";
 
 function getAppUrl() {
@@ -42,6 +43,179 @@ export async function checkPhoneAvailable(phone: string) {
   }
 
   return { available: true, message: "" };
+}
+
+function buildSignupConfirmationEmailHtml({
+  fullName,
+  confirmationUrl,
+}: {
+  fullName: string;
+  confirmationUrl: string;
+}) {
+  const displayName = fullName?.trim() || "there";
+
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Welcome, ${displayName}</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        Thank you for creating your Finding Keepers account. Please confirm your email address to continue.
+      </p>
+      <a href="${confirmationUrl}" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin: 8px 0 28px;">
+        Confirm email address
+      </a>
+      <p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #5a4a55; margin: 0 0 8px;">
+        If the button does not work, copy and paste this link into your browser:
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #6b3563; word-break: break-all; margin: 0 0 28px;">
+        ${confirmationUrl}
+      </p>
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid #e3cfa0;" />
+      <p style="font-family: Arial, sans-serif; font-size: 13px; color: #9ca3af; margin: 0;">
+        If you did not create this account, you can safely ignore this email.
+      </p>
+    </div>
+  `;
+}
+
+export async function registerUser({
+  email,
+  password,
+  full_name,
+  gender,
+  phone,
+  is_permanent_resident,
+}: {
+  email: string;
+  password: string;
+  full_name: string;
+  gender: string;
+  phone: string;
+  is_permanent_resident: boolean;
+}) {
+  const normalizedPhone = normalizePhone(phone);
+  if (!normalizedPhone) {
+    return { ok: false as const, message: "Please enter a valid phone number" };
+  }
+
+  const phoneCheck = await checkPhoneAvailable(phone);
+  if (!phoneCheck.available) {
+    return { ok: false as const, message: phoneCheck.message };
+  }
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return {
+      ok: false as const,
+      message:
+        "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to your environment variables.",
+    };
+  }
+
+  const appUrl = getAppUrl();
+  const redirectTo = `${appUrl}/auth/confirm?next=/login`;
+  const userMetadata = {
+    full_name,
+    gender,
+    phone: normalizedPhone,
+    is_permanent_resident,
+  };
+
+  const { data: createdUser, error: createError } =
+    await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: false,
+      user_metadata: userMetadata,
+    });
+
+  if (createError) {
+    const alreadyRegistered =
+      createError.message.includes("already been registered") ||
+      createError.message.includes("already registered");
+
+    if (!alreadyRegistered) {
+      console.error("Create user error:", createError);
+      return { ok: false as const, message: createError.message };
+    }
+  }
+
+  const { data: linkData, error: linkError } =
+    await admin.auth.admin.generateLink({
+      type: "signup",
+      email,
+      password,
+      options: {
+        redirectTo,
+        data: userMetadata,
+      },
+    });
+
+  if (linkError || !linkData?.properties?.action_link) {
+    console.error("Generate signup link error:", linkError);
+    const alreadyConfirmed =
+      linkError?.message.includes("already been registered") ||
+      linkError?.message.includes("already registered");
+
+    return {
+      ok: false as const,
+      message: alreadyConfirmed
+        ? "An account with this email already exists. Try logging in or resetting your password."
+        : "Could not create your confirmation link. Please try again shortly.",
+    };
+  }
+
+  const userId = createdUser.user?.id ?? linkData.user?.id;
+
+  if (createError && userId) {
+    await admin.auth.admin.updateUserById(userId, {
+      password,
+      user_metadata: userMetadata,
+    });
+  }
+
+  const emailResult = await sendEmail({
+    to: email,
+    subject: "Confirm your Finding Keepers account",
+    html: buildSignupConfirmationEmailHtml({
+      fullName: full_name,
+      confirmationUrl: linkData.properties.action_link,
+    }),
+  });
+
+  if (!emailResult.ok) {
+    if (isResendTestModeRestriction(emailResult.message)) {
+      return {
+        ok: false as const,
+        message:
+          "Resend test mode only allows sending to findingkeepers@connecthk.org. Verify connecthk.org at resend.com/domains and set RESEND_FROM_EMAIL to send confirmation emails to all users.",
+      };
+    }
+
+    console.error("Signup confirmation email error:", emailResult.message);
+    return {
+      ok: false as const,
+      message:
+        "Your account was created but we could not send the confirmation email. Please contact support.",
+    };
+  }
+
+  if (userId) {
+    const { error: profileError } = await admin.from("profiles").upsert({
+      id: userId,
+      email,
+      full_name,
+      gender,
+      phone: normalizedPhone,
+      verification_status: "unverified",
+    });
+
+    if (profileError) {
+      console.error("Profile upsert error:", profileError);
+    }
+  }
+
+  return { ok: true as const, message: "" };
 }
 
 export async function sendVerificationPendingEmail({

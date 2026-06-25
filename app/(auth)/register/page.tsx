@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { checkPhoneAvailable } from '@/app/actions/auth';
+import { checkPhoneAvailable, registerUser } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +12,6 @@ import { AuthCard } from '@/components/layout/AuthCard';
 import { TermsAgreement } from '@/components/auth/TermsAgreement';
 import { PasswordStrength } from '@/components/ui/password-strength';
 import { isPasswordStrongEnough } from '@/lib/password';
-import { normalizePhone } from '@/lib/phone';
 import { toast } from 'sonner';
 
 export default function RegisterPage() {
@@ -59,37 +57,19 @@ export default function RegisterPage() {
       return;
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-
-    const { data, error } = await supabase.auth.signUp({
+    const result = await registerUser({
       email,
       password,
-      options: {
-        emailRedirectTo: `${appUrl}/auth/confirm?next=/login`,
-        data: {
-          full_name,
-          gender,
-          phone: normalizePhone(phone),
-          is_permanent_resident,
-        },
-      },
+      full_name,
+      gender,
+      phone,
+      is_permanent_resident,
     });
 
-    if (error) {
-      toast.error(error.message);
+    if (!result.ok) {
+      toast.error(result.message);
       setLoading(false);
       return;
-    }
-
-    if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        full_name,
-        gender,
-        phone: normalizePhone(phone),
-        verification_status: 'unverified',
-      });
     }
 
     toast.success("Account created! Check your email and click the confirmation link.");
