@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { requestMatch } from '@/app/actions/match';
 import { gendersAreOpposite } from '@/lib/gender';
 import { User } from 'lucide-react';
+import { formatSelectionWithOther } from '@/lib/cv-other';
 
 export default function ViewProfilePage() {
   const router = useRouter();
@@ -247,13 +248,22 @@ export default function ViewProfilePage() {
           <CVField label="Self Description" value={data.selfDescription} />
           <CVField label="Religious History" value={data.religiousHistory} />
           <CVField label="Do you pray?" value={data.prayLevel} />
-          <CVField label="Sect / Madhab" value={data.sect} />
+          <CVField
+            label="Sect / Madhab"
+            value={formatSelectionWithOther(data.sect, data.sectOther)}
+          />
         </CVSectionCard>
 
         {(data.waliName || data.waliRelationship) && (
           <CVSectionCard title="Guarantor / Wali" index={6}>
             <CVField label="Wali's Name" value={data.waliName} />
-            <CVField label="Relationship" value={data.waliRelationship} />
+            <CVField
+              label="Relationship"
+              value={formatSelectionWithOther(
+                data.waliRelationship,
+                data.waliRelationshipOther
+              )}
+            />
           </CVSectionCard>
         )}
       </div>

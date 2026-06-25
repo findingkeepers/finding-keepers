@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { User } from 'lucide-react';
+import { formatSelectionWithOther } from '@/lib/cv-other';
 
 export default function MyCVPage() {
   const router = useRouter();
@@ -177,12 +178,21 @@ export default function MyCVPage() {
           <CVField label="Self Description" value={data.selfDescription} />
           <CVField label="Religious History" value={data.religiousHistory} />
           <CVField label="Do you pray?" value={data.prayLevel} />
-          <CVField label="Sect / Madhab" value={data.sect} />
+          <CVField
+            label="Sect / Madhab"
+            value={formatSelectionWithOther(data.sect, data.sectOther)}
+          />
         </CVSectionCard>
 
         <CVSectionCard title="Guarantor / Wali" index={7}>
           <CVField label="Wali's Name" value={data.waliName} />
-          <CVField label="Relationship" value={data.waliRelationship} />
+          <CVField
+            label="Relationship"
+            value={formatSelectionWithOther(
+              data.waliRelationship,
+              data.waliRelationshipOther
+            )}
+          />
           <CVField label="Wali's Phone" value={data.waliPhone} />
           <CVField label="Wali's Email" value={data.waliEmail} />
         </CVSectionCard>

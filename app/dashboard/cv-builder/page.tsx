@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CVProgressBar } from '@/components/cv/CVProgressBar';
+import { OtherSpecifyField } from '@/components/cv/OtherSpecifyField';
+import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
@@ -40,6 +42,7 @@ export default function CVBuilder() {
     partnerQualities: '', marriageVision: '', sharedInterestsImportance: '', 
     partnershipGrowth: '', dealBreakers: '', whatSeeking: '',
     partnerAgeRange: '', partnerEducation: '', partnerEthnicBackground: '',
+    partnerEthnicBackgroundOther: '',
     partnerSect: '', partnerReligiousHistory: '', partnerReligiosity: '',
     familyRole: '', closestFamilyMember: '', hobbies: '', favoriteBooksMovies: '',
     hangoutWithFriends: '', relaxMethod: '', longTermGoals: '', idealCoupleLifestyle: '',
@@ -47,9 +50,10 @@ export default function CVBuilder() {
     importantValues: '', beliefsShapeLife: '', faithInDailyLife: '', 
     prayerCommunityRole: '', faithWithSpouse: '', raisingChildrenIslamic: '',
     conflictResolution: '', handleStress: '', handleDisagreements: '', communicationRole: '',
-    selfDescription: '', residencyStatus: '', ethnicBackground: '', occupation: '', education: '',
-    maritalStatus: '', religiousHistory: '', prayLevel: '', sect: '',
-    waliInvolvement: '', waliReason: '', waliRelationship: '', waliName: '',
+    selfDescription: '', residencyStatus: '', residencyStatusOther: '',
+    ethnicBackground: '', ethnicBackgroundOther: '', occupation: '', education: '',
+    maritalStatus: '', religiousHistory: '', prayLevel: '', sect: '', sectOther: '',
+    waliInvolvement: '', waliReason: '', waliRelationship: '', waliRelationshipOther: '', waliName: '',
     waliHKID: '', waliPhone: '', waliEmail: '', waliAddress: '',
     shortID: '',
   });
@@ -121,15 +125,39 @@ export default function CVBuilder() {
     if (errors.length > 0) setErrors([]);
   };
 
-  const handleMultiSelect = (field: string, value: string) => {
-    const current = formData[field as keyof typeof formData] as string || '';
+  const handleSelectionChange = (
+    field: string,
+    value: string,
+    otherField?: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(otherField && !selectionIsOther(value) ? { [otherField]: "" } : {}),
+    }));
+    if (errors.length > 0) setErrors([]);
+  };
+
+  const handleMultiSelect = (
+    field: string,
+    value: string,
+    otherField?: string
+  ) => {
+    const current = (formData[field as keyof typeof formData] as string) || '';
     const values = current ? current.split(', ') : [];
+
     if (values.includes(value)) {
-      const newValues = values.filter(v => v !== value);
-      handleChange(field, newValues.join(', '));
+      const newValues = values.filter((entry) => entry !== value);
+      setFormData((prev) => ({
+        ...prev,
+        [field]: newValues.join(', '),
+        ...(otherField && value === "Other" ? { [otherField]: "" } : {}),
+      }));
     } else {
       handleChange(field, [...values, value].join(', '));
     }
+
+    if (errors.length > 0) setErrors([]);
   };
 
   useEffect(() => {
@@ -313,16 +341,29 @@ export default function CVBuilder() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
           {ETHNICITY_OPTIONS.map((opt) => (
             <label key={opt} className="flex items-center gap-2">
-              <input type="radio" name="ethnicBackground" value={opt} checked={formData.ethnicBackground === opt} onChange={(e) => handleChange('ethnicBackground', e.target.value)} /> {opt}
+              <input type="radio" name="ethnicBackground" value={opt} checked={formData.ethnicBackground === opt} onChange={(e) => handleSelectionChange('ethnicBackground', e.target.value, 'ethnicBackgroundOther')} /> {opt}
             </label>
           ))}
         </div>
+        <OtherSpecifyField
+          show={selectionIsOther(formData.ethnicBackground)}
+          label="Please specify your ethnic background"
+          value={formData.ethnicBackgroundOther}
+          onChange={(value) => handleChange('ethnicBackgroundOther', value)}
+        />
       </div>
       <div className="space-y-2"><Label>Residency Status</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {RESIDENCY_OPTIONS.map(opt => (
-          <label key={opt} className="flex items-center gap-2"><input type="radio" name="residencyStatus" value={opt} checked={formData.residencyStatus === opt} onChange={(e) => handleChange('residencyStatus', e.target.value)} /> {opt}</label>
+          <label key={opt} className="flex items-center gap-2"><input type="radio" name="residencyStatus" value={opt} checked={formData.residencyStatus === opt} onChange={(e) => handleSelectionChange('residencyStatus', e.target.value, 'residencyStatusOther')} /> {opt}</label>
         ))}
-      </div></div>
+      </div>
+        <OtherSpecifyField
+          show={selectionIsOther(formData.residencyStatus)}
+          label="Please specify your residency status"
+          value={formData.residencyStatusOther}
+          onChange={(value) => handleChange('residencyStatusOther', value)}
+        />
+      </div>
       <div className="space-y-2"><Label>Your Occupation</Label><Input value={formData.occupation} onChange={(e) => handleChange('occupation', e.target.value)} /></div>
       <div className="space-y-2"><Label>Your Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
         {["Secondary School", "Diploma/ Associate Degree", "Under-graduate", "Graduate/Post-graduate"].map(opt => (
@@ -344,11 +385,18 @@ export default function CVBuilder() {
         ))}
       </div></div>
       <div className="space-y-2"><Label>Sect / Madhab</Label><div className="flex gap-6 mt-2 flex-wrap">
-        <label><input type="radio" name="sect" value="Sunni" checked={formData.sect === "Sunni"} onChange={(e) => handleChange('sect', e.target.value)} /> Sunni</label>
-        <label><input type="radio" name="sect" value="Shia" checked={formData.sect === "Shia"} onChange={(e) => handleChange('sect', e.target.value)} /> Shia</label>
-        <label><input type="radio" name="sect" value="Other" checked={formData.sect === "Other"} onChange={(e) => handleChange('sect', e.target.value)} /> Other</label>
-        <label><input type="radio" name="sect" value="Prefer not to mention" checked={formData.sect === "Prefer not to mention"} onChange={(e) => handleChange('sect', e.target.value)} /> Prefer not to mention</label>
-      </div></div>
+        <label><input type="radio" name="sect" value="Sunni" checked={formData.sect === "Sunni"} onChange={(e) => handleSelectionChange('sect', e.target.value, 'sectOther')} /> Sunni</label>
+        <label><input type="radio" name="sect" value="Shia" checked={formData.sect === "Shia"} onChange={(e) => handleSelectionChange('sect', e.target.value, 'sectOther')} /> Shia</label>
+        <label><input type="radio" name="sect" value="Other" checked={formData.sect === "Other"} onChange={(e) => handleSelectionChange('sect', e.target.value, 'sectOther')} /> Other</label>
+        <label><input type="radio" name="sect" value="Prefer not to mention" checked={formData.sect === "Prefer not to mention"} onChange={(e) => handleSelectionChange('sect', e.target.value, 'sectOther')} /> Prefer not to mention</label>
+      </div>
+        <OtherSpecifyField
+          show={selectionIsOther(formData.sect)}
+          label="Please specify your sect / madhab"
+          value={formData.sectOther}
+          onChange={(value) => handleChange('sectOther', value)}
+        />
+      </div>
     </div>
   );
 
@@ -387,10 +435,17 @@ export default function CVBuilder() {
       <div className="space-y-2"><Label>Partner’s Ethnic Background (Select all that apply)</Label><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
         {["Chinese", "Pakistani", "Indian", "Bangladeshi", "Malaysian", "Indonesian", "Philippines", "Other"].map(opt => (
           <label key={opt} className="flex items-center gap-2">
-            <input type="checkbox" checked={formData.partnerEthnicBackground?.includes(opt) || false} onChange={() => handleMultiSelect('partnerEthnicBackground', opt)} /> {opt}
+            <input type="checkbox" checked={formData.partnerEthnicBackground?.includes(opt) || false} onChange={() => handleMultiSelect('partnerEthnicBackground', opt, 'partnerEthnicBackgroundOther')} /> {opt}
           </label>
         ))}
-      </div></div>
+      </div>
+        <OtherSpecifyField
+          show={multiSelectIncludesOther(formData.partnerEthnicBackground)}
+          label="Please specify other partner ethnic background(s)"
+          value={formData.partnerEthnicBackgroundOther}
+          onChange={(value) => handleChange('partnerEthnicBackgroundOther', value)}
+        />
+      </div>
     </div>
   );
 
@@ -442,10 +497,17 @@ export default function CVBuilder() {
       </div></div>
       <div className="space-y-2"><Label>If you selected "No", please state the reason (otherwise put N/A)</Label><Textarea value={formData.waliReason} onChange={(e) => handleChange('waliReason', e.target.value)} rows={3} /></div>
       <div className="space-y-2"><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
-        <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Father</label>
-        <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Mother</label>
-        <label><input type="radio" name="waliRelationship" value="Other" checked={formData.waliRelationship === "Other"} onChange={(e) => handleChange('waliRelationship', e.target.value)} /> Other</label>
-      </div></div>
+        <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Father</label>
+        <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Mother</label>
+        <label><input type="radio" name="waliRelationship" value="Other" checked={formData.waliRelationship === "Other"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Other</label>
+      </div>
+        <OtherSpecifyField
+          show={selectionIsOther(formData.waliRelationship)}
+          label="Please specify wali's relationship to you"
+          value={formData.waliRelationshipOther}
+          onChange={(value) => handleChange('waliRelationshipOther', value)}
+        />
+      </div>
       <div className="space-y-2"><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
       <div className="space-y-2"><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
       <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>

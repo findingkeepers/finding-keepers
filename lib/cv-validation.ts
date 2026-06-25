@@ -1,3 +1,8 @@
+import {
+  multiSelectIncludesOther,
+  selectionIsOther,
+} from "@/lib/cv-other";
+
 type FormData = Record<string, string>;
 
 function wordCount(text: string) {
@@ -24,6 +29,28 @@ function requireSelection(
   }
 }
 
+function requireOtherSpecify(
+  warnings: string[],
+  selection: string | undefined,
+  otherValue: string | undefined,
+  label: string
+) {
+  if (selectionIsOther(selection) && !otherValue?.trim()) {
+    warnings.push(`${label} is required when "Other" is selected`);
+  }
+}
+
+function requireOtherInMultiSelect(
+  warnings: string[],
+  selections: string | undefined,
+  otherValue: string | undefined,
+  label: string
+) {
+  if (multiSelectIncludesOther(selections) && !otherValue?.trim()) {
+    warnings.push(`${label} is required when "Other" is selected`);
+  }
+}
+
 export function getStepWarnings(step: number, data: FormData): string[] {
   const warnings: string[] = [];
 
@@ -39,13 +66,26 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         warnings.push("Self description must be at least 100 words");
       }
       requireSelection(warnings, data.residencyStatus, "Residency Status");
+      requireOtherSpecify(
+        warnings,
+        data.residencyStatus,
+        data.residencyStatusOther,
+        "Residency status details"
+      );
       requireSelection(warnings, data.ethnicBackground, "Ethnic background");
+      requireOtherSpecify(
+        warnings,
+        data.ethnicBackground,
+        data.ethnicBackgroundOther,
+        "Ethnic background details"
+      );
       requireText(warnings, data.occupation, "Occupation");
       requireSelection(warnings, data.education, "Education level");
       requireSelection(warnings, data.maritalStatus, "Marital Status");
       requireSelection(warnings, data.religiousHistory, "Religious History");
       requireSelection(warnings, data.prayLevel, "How often you pray");
       requireSelection(warnings, data.sect, "Sect/Madhab");
+      requireOtherSpecify(warnings, data.sect, data.sectOther, "Sect/Madhab details");
       break;
 
     case 3:
@@ -78,6 +118,12 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         warnings,
         data.partnerEthnicBackground,
         "Partner's ethnic background"
+      );
+      requireOtherInMultiSelect(
+        warnings,
+        data.partnerEthnicBackground,
+        data.partnerEthnicBackgroundOther,
+        "Partner ethnic background details"
       );
       break;
 
@@ -158,6 +204,12 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         'Wali reason (enter "N/A" if not applicable)'
       );
       requireSelection(warnings, data.waliRelationship, "Wali's relationship to you");
+      requireOtherSpecify(
+        warnings,
+        data.waliRelationship,
+        data.waliRelationshipOther,
+        "Wali relationship details"
+      );
       requireText(warnings, data.waliName, "Wali's name");
       requireText(warnings, data.waliHKID, "Wali's HKID / Passport number");
       requireText(warnings, data.waliPhone, "Wali's phone number");
