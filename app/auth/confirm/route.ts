@@ -31,9 +31,10 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type });
 
     if (!error) {
+      await supabase.auth.signOut();
       return NextResponse.redirect(`${origin}${next}?verified=1`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/verify-email?error=confirmation_failed`);
+  return NextResponse.redirect(`${origin}/login?error=confirmation_failed`);
 }

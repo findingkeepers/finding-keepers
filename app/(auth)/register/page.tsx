@@ -92,8 +92,8 @@ export default function RegisterPage() {
       });
     }
 
-    toast.success("Account created! Enter the verification code sent to your email.");
-    router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+    toast.success("Account created! Check your email and click the confirmation link.");
+    router.push("/login?check_email=1");
     setLoading(false);
   };
 

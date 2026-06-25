@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,23 @@ import { Label } from '@/components/ui/label';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('verified') === '1') {
+      toast.success("Email confirmed! You can log in now.");
+    }
+    if (searchParams.get('check_email') === '1') {
+      toast.message("Check your inbox", {
+        description: "Click the confirmation link in your email, then log in here.",
+      });
+    }
+    if (searchParams.get('error') === 'confirmation_failed') {
+      toast.error("Confirmation link expired or invalid. Try registering again or contact support.");
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -64,5 +80,13 @@ export default function LoginPage() {
         </Button>
       </form>
     </AuthCard>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
