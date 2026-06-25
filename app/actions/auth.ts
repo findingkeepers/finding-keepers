@@ -45,6 +45,100 @@ export async function checkPhoneAvailable(phone: string) {
   return { available: true, message: "" };
 }
 
+type AuthActionResult =
+  | { ok: true; message: string }
+  | { ok: false; message: string; pendingConfirmation?: boolean };
+
+async function sendSignupConfirmationEmail({
+  email,
+  password,
+  fullName,
+}: {
+  email: string;
+  password: string;
+  fullName?: string;
+}): Promise<AuthActionResult> {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return {
+      ok: false,
+      message:
+        "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to your environment variables.",
+    };
+  }
+
+  const appUrl = getAppUrl();
+  const redirectTo = `${appUrl}/auth/confirm?next=/login`;
+
+  const { data: linkData, error: linkError } =
+    await admin.auth.admin.generateLink({
+      type: "signup",
+      email,
+      password,
+      options: { redirectTo },
+    });
+
+  if (linkError || !linkData?.properties?.action_link) {
+    console.error("Generate signup link error:", linkError);
+
+    if (linkData?.user?.email_confirmed_at) {
+      return {
+        ok: false,
+        message: "This email is already confirmed. You can log in now.",
+      };
+    }
+
+    return {
+      ok: false,
+      message:
+        linkError?.message ||
+        "Could not create a confirmation link. Please try again shortly.",
+    };
+  }
+
+  if (linkData.user?.email_confirmed_at) {
+    return {
+      ok: false,
+      message: "This email is already confirmed. You can log in now.",
+    };
+  }
+
+  const displayName =
+    fullName?.trim() ||
+    (linkData.user?.user_metadata?.full_name as string | undefined)?.trim() ||
+    "";
+
+  const emailResult = await sendEmail({
+    to: email,
+    subject: "Confirm your Finding Keepers account",
+    html: buildSignupConfirmationEmailHtml({
+      fullName: displayName,
+      confirmationUrl: linkData.properties.action_link,
+    }),
+  });
+
+  if (!emailResult.ok) {
+    if (isResendTestModeRestriction(emailResult.message)) {
+      return {
+        ok: false,
+        pendingConfirmation: true,
+        message:
+          "Your account exists but confirmation emails can only be sent to findingkeepers@connecthk.org until connecthk.org is verified on Resend. Add the domain at resend.com/domains, set RESEND_FROM_EMAIL in Vercel, then use Resend confirmation below.",
+      };
+    }
+
+    console.error("Signup confirmation email error:", emailResult.message);
+    return {
+      ok: false,
+      pendingConfirmation: true,
+      message:
+        "Could not send the confirmation email. Try again below or contact support.",
+    };
+  }
+
+  return { ok: true, message: "Confirmation email sent. Check your inbox." };
+}
+
 function buildSignupConfirmationEmailHtml({
   fullName,
   confirmationUrl,
@@ -140,82 +234,77 @@ export async function registerUser({
     }
   }
 
-  const { data: linkData, error: linkError } =
-    await admin.auth.admin.generateLink({
-      type: "signup",
-      email,
-      password,
-      options: {
-        redirectTo,
-        data: userMetadata,
-      },
-    });
+  let userId = createdUser.user?.id;
 
-  if (linkError || !linkData?.properties?.action_link) {
-    console.error("Generate signup link error:", linkError);
-    const alreadyConfirmed =
-      linkError?.message.includes("already been registered") ||
-      linkError?.message.includes("already registered");
+  if (!userId) {
+    const { data: linkData, error: linkError } =
+      await admin.auth.admin.generateLink({
+        type: "signup",
+        email,
+        password,
+        options: { redirectTo, data: userMetadata },
+      });
 
-    return {
-      ok: false as const,
-      message: alreadyConfirmed
-        ? "An account with this email already exists. Try logging in or resetting your password."
-        : "Could not create your confirmation link. Please try again shortly.",
-    };
-  }
-
-  const userId = createdUser.user?.id ?? linkData.user?.id;
-
-  if (createError && userId) {
-    await admin.auth.admin.updateUserById(userId, {
-      password,
-      user_metadata: userMetadata,
-    });
-  }
-
-  const emailResult = await sendEmail({
-    to: email,
-    subject: "Confirm your Finding Keepers account",
-    html: buildSignupConfirmationEmailHtml({
-      fullName: full_name,
-      confirmationUrl: linkData.properties.action_link,
-    }),
-  });
-
-  if (!emailResult.ok) {
-    if (isResendTestModeRestriction(emailResult.message)) {
+    if (linkError || !linkData?.user?.id) {
+      console.error("Resolve existing user error:", linkError);
       return {
         ok: false as const,
         message:
-          "Resend test mode only allows sending to findingkeepers@connecthk.org. Verify connecthk.org at resend.com/domains and set RESEND_FROM_EMAIL to send confirmation emails to all users.",
+          "An account with this email already exists. Try logging in or resetting your password.",
       };
     }
 
-    console.error("Signup confirmation email error:", emailResult.message);
-    return {
-      ok: false as const,
-      message:
-        "Your account was created but we could not send the confirmation email. Please contact support.",
-    };
-  }
+    userId = linkData.user.id;
 
-  if (userId) {
-    const { error: profileError } = await admin.from("profiles").upsert({
-      id: userId,
-      email,
-      full_name,
-      gender,
-      phone: normalizedPhone,
-      verification_status: "unverified",
-    });
-
-    if (profileError) {
-      console.error("Profile upsert error:", profileError);
+    if (createError) {
+      await admin.auth.admin.updateUserById(userId, {
+        password,
+        user_metadata: userMetadata,
+      });
     }
   }
 
+  const { error: profileError } = await admin.from("profiles").upsert({
+    id: userId,
+    email,
+    full_name,
+    gender,
+    phone: normalizedPhone,
+    verification_status: "unverified",
+  });
+
+  if (profileError) {
+    console.error("Profile upsert error:", profileError);
+  }
+
+  const emailResult = await sendSignupConfirmationEmail({
+    email,
+    password,
+    fullName: full_name,
+  });
+
+  if (!emailResult.ok) {
+    return emailResult;
+  }
+
   return { ok: true as const, message: "" };
+}
+
+export async function resendConfirmationEmail({
+  email,
+  password,
+}: {
+  email: string;
+  password: string;
+}) {
+  if (!email?.trim() || !password) {
+    return {
+      ok: false as const,
+      message: "Enter your email and password to resend the confirmation link.",
+    };
+  }
+
+  return sendSignupConfirmationEmail({ email: email.trim(), password });
 }
 
 export async function sendVerificationPendingEmail({

@@ -68,6 +68,11 @@ export default function RegisterPage() {
 
     if (!result.ok) {
       toast.error(result.message);
+      if (result.pendingConfirmation) {
+        router.push(
+          `/login?pending_confirmation=1&email=${encodeURIComponent(email)}`
+        );
+      }
       setLoading(false);
       return;
     }
