@@ -33,3 +33,6 @@ WHERE status = 'pending';
 -- 3) Track who initiated each match request (for direction arrows in admin/user UI)
 ALTER TABLE public.match_requests
 ADD COLUMN IF NOT EXISTS requested_by_short_id text;
+
+-- 4) Allow authenticated users to read match requests they are part of
+-- Updates are handled server-side via service role in /api/match/respond

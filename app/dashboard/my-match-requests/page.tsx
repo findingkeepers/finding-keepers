@@ -1,10 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { respondToMatchRequest } from '@/app/actions/match';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -96,13 +94,24 @@ export default function MyMatchRequestsPage() {
   ) => {
     setRespondingId(requestId);
 
-    const result = await respondToMatchRequest({ requestId, decision });
+    try {
+      const response = await fetch('/api/match/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ requestId, decision }),
+      });
 
-    if (result.success) {
-      toast.success(result.message);
-      await fetchRequests();
-    } else {
-      toast.error(result.message || 'Could not update match request');
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        await fetchRequests();
+      } else {
+        toast.error(result.message || 'Could not update match request');
+      }
+    } catch {
+      toast.error('Could not update match request. Please try again.');
     }
 
     setRespondingId(null);
@@ -191,12 +200,13 @@ export default function MyMatchRequestsPage() {
                       {canRespond ? (
                         <div className="flex flex-wrap gap-2">
                           <Button
-                            asChild
+                            type="button"
                             variant="premium-outline"
                             size="sm"
                             className="rounded-lg"
+                            onClick={() => router.push(`/browse/${fromId}`)}
                           >
-                            <Link href={`/browse/${fromId}`}>View CV</Link>
+                            View CV
                           </Button>
                           <Button
                             variant="premium"

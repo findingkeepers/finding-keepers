@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getAdminNotificationEmail, sendEmail } from "@/lib/email";
 import { getMatchDirection } from "@/lib/match-request";
 
@@ -379,7 +380,16 @@ export async function respondToMatchRequest({
 
     const newStatus = decision === "approve" ? "approved" : "rejected";
 
-    const { error: updateError } = await supabase
+    const admin = createAdminSupabaseClient();
+    if (!admin) {
+      return {
+        success: false,
+        message:
+          "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY.",
+      };
+    }
+
+    const { error: updateError } = await admin
       .from("match_requests")
       .update({ status: newStatus })
       .eq("id", requestId);

@@ -72,7 +72,9 @@ function LoginForm() {
       }
     } else {
       toast.success("Logged in successfully!");
-      window.location.href = '/dashboard';
+      const next = searchParams.get('next');
+      window.location.href =
+        next && next.startsWith('/') ? next : '/dashboard';
     }
     setLoading(false);
   };
