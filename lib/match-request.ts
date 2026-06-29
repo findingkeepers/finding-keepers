@@ -47,3 +47,17 @@ export function formatUserMatchDirection(
 
   return `${myShortId} → ${otherId}`;
 }
+
+export function isMatchRequester(
+  request: MatchRequestRecord,
+  shortId: string
+) {
+  return getMatchDirection(request).fromId === shortId;
+}
+
+export function isMatchRecipient(
+  request: MatchRequestRecord,
+  shortId: string
+) {
+  return getMatchDirection(request).toId === shortId;
+}

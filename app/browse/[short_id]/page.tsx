@@ -112,7 +112,7 @@ export default function ViewProfilePage() {
       });
 
       if (result.success) {
-        toast.success("Match request sent successfully!");
+        toast.success("Match request sent! They will be notified by email.");
         setRequestSent(true);
       } else {
         toast.error(result.message || "Failed to send request");

@@ -123,6 +123,7 @@ export default function AdminMatchesPage() {
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
             <option value="contacted">Contacted</option>
             <option value="completed">Completed</option>
             <option value="rejected">Rejected</option>
@@ -185,6 +186,7 @@ export default function AdminMatchesPage() {
                       className="h-9 text-sm"
                     >
                       <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
                       <option value="contacted">Contacted</option>
                       <option value="completed">Completed</option>
                       <option value="rejected">Rejected</option>
