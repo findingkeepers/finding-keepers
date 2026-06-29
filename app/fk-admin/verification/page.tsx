@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,10 @@ import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/compone
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
 import { updateVerificationStatus } from '@/app/actions/verification';
+import {
+  formatVerificationChoice,
+  isNonPrVerificationRequest,
+} from '@/lib/verification-display';
 
 interface VerificationRequest {
   id: string;
@@ -21,13 +25,25 @@ interface VerificationRequest {
   status: string;
   hkid_image_path: string;
   payment_proof_path: string;
+  visa_document_path: string | null;
+  years_in_hk: string | null;
+  years_in_hk_other: string | null;
+  visa_type: string | null;
+  visa_type_other: string | null;
+  referral_name: string | null;
+  referral_phone: string | null;
+  referral_email: string | null;
+  referral_hkid: string | null;
   user_id: string;
   profiles: {
     full_name: string;
     email: string;
     phone: string;
+    is_permanent_resident: boolean | null;
   };
 }
+
+const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/verifications`;
 
 export default function AdminVerifications() {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
@@ -48,11 +64,21 @@ export default function AdminVerifications() {
         status,
         hkid_image_path,
         payment_proof_path,
+        visa_document_path,
+        years_in_hk,
+        years_in_hk_other,
+        visa_type,
+        visa_type_other,
+        referral_name,
+        referral_phone,
+        referral_email,
+        referral_hkid,
         user_id,
         profiles (
           full_name,
           email,
-          phone
+          phone,
+          is_permanent_resident
         )
       `)
       .order('submitted_at', { ascending: false });
@@ -160,7 +186,7 @@ export default function AdminVerifications() {
       </FilterBar>
 
       <DataTable>
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1100px]">
           <DataTableHead>
             <tr>
               <DataTableCell header>Submitted</DataTableCell>
@@ -168,6 +194,7 @@ export default function AdminVerifications() {
               <DataTableCell header>Email</DataTableCell>
               <DataTableCell header>Phone</DataTableCell>
               <DataTableCell header>HKID</DataTableCell>
+              <DataTableCell header>Residency</DataTableCell>
               <DataTableCell header>Documents</DataTableCell>
               <DataTableCell header>Status</DataTableCell>
               <DataTableCell header>Action</DataTableCell>
@@ -176,55 +203,116 @@ export default function AdminVerifications() {
           <tbody>
             {filteredRequests.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                <td colSpan={9} className="p-8 text-center text-muted-foreground">
                   No verification requests found.
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((req) => (
-                <DataTableRow key={req.id}>
-                  <DataTableCell className="text-sm">
-                    {new Date(req.submitted_at).toLocaleString()}
-                  </DataTableCell>
-                  <DataTableCell className="font-medium">{req.profiles?.full_name || 'N/A'}</DataTableCell>
-                  <DataTableCell className="text-sm">{req.profiles?.email}</DataTableCell>
-                  <DataTableCell className="text-sm">{req.profiles?.phone || 'N/A'}</DataTableCell>
-                  <DataTableCell className="font-mono text-sm">{req.hkid_number}</DataTableCell>
-                  <DataTableCell className="text-sm">
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/verifications/${req.hkid_image_path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-fk-mauve hover:underline"
-                    >
-                      HKID
-                    </a>
-                    <span className="mx-2 text-border">|</span>
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/verifications/${req.payment_proof_path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-fk-mauve hover:underline"
-                    >
-                      Payment
-                    </a>
-                  </DataTableCell>
-                  <DataTableCell>
-                    <StatusBadge status={req.status} />
-                  </DataTableCell>
-                  <DataTableCell>
-                    <Select
-                      value={req.status}
-                      onChange={(e) => updateStatus(req.id, e.target.value, req.user_id)}
-                      className="h-9 text-sm"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="verified">Verified</option>
-                      <option value="invalidated">Invalidated</option>
-                    </Select>
-                  </DataTableCell>
-                </DataTableRow>
-              ))
+              filteredRequests.map((req) => {
+                const showNonPrDetails =
+                  req.profiles?.is_permanent_resident === false ||
+                  isNonPrVerificationRequest(req);
+
+                return (
+                  <Fragment key={req.id}>
+                    <DataTableRow>
+                      <DataTableCell className="text-sm">
+                        {new Date(req.submitted_at).toLocaleString()}
+                      </DataTableCell>
+                      <DataTableCell className="font-medium">{req.profiles?.full_name || 'N/A'}</DataTableCell>
+                      <DataTableCell className="text-sm">{req.profiles?.email}</DataTableCell>
+                      <DataTableCell className="text-sm">{req.profiles?.phone || 'N/A'}</DataTableCell>
+                      <DataTableCell className="font-mono text-sm">{req.hkid_number}</DataTableCell>
+                      <DataTableCell className="text-sm">
+                        {req.profiles?.is_permanent_resident === false
+                          ? 'Non-PR'
+                          : req.profiles?.is_permanent_resident === true
+                            ? 'PR'
+                            : 'N/A'}
+                      </DataTableCell>
+                      <DataTableCell className="text-sm">
+                        <a
+                          href={`${storageBase}/${req.hkid_image_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-fk-mauve hover:underline"
+                        >
+                          HKID
+                        </a>
+                        <span className="mx-2 text-border">|</span>
+                        <a
+                          href={`${storageBase}/${req.payment_proof_path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-fk-mauve hover:underline"
+                        >
+                          Payment
+                        </a>
+                        {req.visa_document_path && (
+                          <>
+                            <span className="mx-2 text-border">|</span>
+                            <a
+                              href={`${storageBase}/${req.visa_document_path}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-fk-mauve hover:underline"
+                            >
+                              Visa
+                            </a>
+                          </>
+                        )}
+                      </DataTableCell>
+                      <DataTableCell>
+                        <StatusBadge status={req.status} />
+                      </DataTableCell>
+                      <DataTableCell>
+                        <Select
+                          value={req.status}
+                          onChange={(e) => updateStatus(req.id, e.target.value, req.user_id)}
+                          className="h-9 text-sm"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="verified">Verified</option>
+                          <option value="invalidated">Invalidated</option>
+                        </Select>
+                      </DataTableCell>
+                    </DataTableRow>
+                    {showNonPrDetails && (
+                      <tr className="border-b border-border/60 bg-amber-50/40">
+                        <td colSpan={9} className="px-6 py-4 text-sm text-muted-foreground">
+                          <p className="mb-2 font-medium text-fk-plum">Non-PR extra verification</p>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                            <p>
+                              <span className="font-medium text-foreground">Time in HK:</span>{' '}
+                              {formatVerificationChoice(req.years_in_hk, req.years_in_hk_other) || 'N/A'}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">Visa type:</span>{' '}
+                              {formatVerificationChoice(req.visa_type, req.visa_type_other) || 'N/A'}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">Referral:</span>{' '}
+                              {req.referral_name || 'N/A'}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">Referral phone:</span>{' '}
+                              {req.referral_phone || 'N/A'}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">Referral email:</span>{' '}
+                              {req.referral_email || 'N/A'}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">Referral HKID:</span>{' '}
+                              {req.referral_hkid || 'N/A'}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

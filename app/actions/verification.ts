@@ -6,17 +6,8 @@ import {
   isResendTestModeRestriction,
   sendEmail,
 } from "@/lib/email";
+import { getAppUrl } from "@/lib/app-url";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
-
-function getAppUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return "http://localhost:3000";
-}
 
 async function assertAdmin(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
@@ -102,18 +93,55 @@ function buildInvalidatedEmailHtml(fullName: string) {
   `;
 }
 
+function formatOptionalChoice(value?: string, other?: string) {
+  if (!value) return "N/A";
+  if (value === "Other" && other?.trim()) return other.trim();
+  return value;
+}
+
 function buildAdminVerificationSubmittedEmailHtml({
   fullName,
   email,
   phone,
   hkidNumber,
+  isPermanentResident = true,
+  yearsInHk,
+  yearsInHkOther,
+  visaType,
+  visaTypeOther,
+  referralName,
+  referralPhone,
+  referralEmail,
+  referralHkid,
 }: {
   fullName: string;
   email: string;
   phone: string;
   hkidNumber: string;
+  isPermanentResident?: boolean;
+  yearsInHk?: string;
+  yearsInHkOther?: string;
+  visaType?: string;
+  visaTypeOther?: string;
+  referralName?: string;
+  referralPhone?: string;
+  referralEmail?: string;
+  referralHkid?: string;
 }) {
   const appUrl = getAppUrl();
+  const nonPrSection = !isPermanentResident
+    ? `
+      <div style="background-color: #fff7ed; padding: 16px; border-radius: 12px; margin: 20px 0;">
+        <p style="margin: 0 0 12px; font-weight: 600; color: #9a3412;">Non-PR extra verification</p>
+        <p style="margin: 0 0 8px;"><strong>Time in HK:</strong> ${formatOptionalChoice(yearsInHk, yearsInHkOther)}</p>
+        <p style="margin: 0 0 8px;"><strong>Visa type:</strong> ${formatOptionalChoice(visaType, visaTypeOther)}</p>
+        <p style="margin: 0 0 8px;"><strong>Referral name:</strong> ${referralName || "N/A"}</p>
+        <p style="margin: 0 0 8px;"><strong>Referral phone:</strong> ${referralPhone || "N/A"}</p>
+        <p style="margin: 0 0 8px;"><strong>Referral email:</strong> ${referralEmail || "N/A"}</p>
+        <p style="margin: 0;"><strong>Referral HKID:</strong> ${referralHkid || "N/A"}</p>
+      </div>
+    `
+    : "";
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 24px; color: #1f2937;">
@@ -125,8 +153,10 @@ function buildAdminVerificationSubmittedEmailHtml({
         <p style="margin: 0 0 8px;"><strong>Name:</strong> ${fullName || "N/A"}</p>
         <p style="margin: 0 0 8px;"><strong>Email:</strong> ${email || "N/A"}</p>
         <p style="margin: 0 0 8px;"><strong>Phone:</strong> ${phone || "N/A"}</p>
-        <p style="margin: 0;"><strong>HKID:</strong> ${hkidNumber || "N/A"}</p>
+        <p style="margin: 0 0 8px;"><strong>HKID:</strong> ${hkidNumber || "N/A"}</p>
+        <p style="margin: 0;"><strong>Residency:</strong> ${isPermanentResident ? "Permanent resident" : "Non permanent resident"}</p>
       </div>
+      ${nonPrSection}
       <a href="${appUrl}/fk-admin/verification" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 10px;">
         Review in admin panel
       </a>
@@ -178,11 +208,29 @@ export async function notifyAdminsVerificationSubmitted({
   email,
   phone,
   hkidNumber,
+  isPermanentResident = true,
+  yearsInHk,
+  yearsInHkOther,
+  visaType,
+  visaTypeOther,
+  referralName,
+  referralPhone,
+  referralEmail,
+  referralHkid,
 }: {
   fullName: string;
   email: string;
   phone: string;
   hkidNumber: string;
+  isPermanentResident?: boolean;
+  yearsInHk?: string;
+  yearsInHkOther?: string;
+  visaType?: string;
+  visaTypeOther?: string;
+  referralName?: string;
+  referralPhone?: string;
+  referralEmail?: string;
+  referralHkid?: string;
 }) {
   const result = await sendEmail({
     to: getAdminNotificationEmail(),
@@ -192,6 +240,15 @@ export async function notifyAdminsVerificationSubmitted({
       email,
       phone,
       hkidNumber,
+      isPermanentResident,
+      yearsInHk,
+      yearsInHkOther,
+      visaType,
+      visaTypeOther,
+      referralName,
+      referralPhone,
+      referralEmail,
+      referralHkid,
     }),
   });
 

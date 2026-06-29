@@ -36,3 +36,19 @@ ADD COLUMN IF NOT EXISTS requested_by_short_id text;
 
 -- 4) Allow authenticated users to read match requests they are part of
 -- Updates are handled server-side via service role in /api/match/respond
+
+-- 5) Permanent resident flag on profiles (set at registration)
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS is_permanent_resident boolean;
+
+-- 6) Extra verification fields for non-permanent residents
+ALTER TABLE public.verification_requests
+ADD COLUMN IF NOT EXISTS years_in_hk text,
+ADD COLUMN IF NOT EXISTS years_in_hk_other text,
+ADD COLUMN IF NOT EXISTS visa_type text,
+ADD COLUMN IF NOT EXISTS visa_type_other text,
+ADD COLUMN IF NOT EXISTS visa_document_path text,
+ADD COLUMN IF NOT EXISTS referral_name text,
+ADD COLUMN IF NOT EXISTS referral_phone text,
+ADD COLUMN IF NOT EXISTS referral_email text,
+ADD COLUMN IF NOT EXISTS referral_hkid text;

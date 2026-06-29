@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { NonPrVerificationForm } from "@/lib/non-pr-verification";
 import { DashboardHeader } from "./DashboardHeader";
+import { NonPrVerificationFields } from "./NonPrVerificationFields";
 import { VerificationStepper } from "./VerificationStepper";
 
 export type VerificationUiStatus = "idle" | "pending" | "rejected";
@@ -20,10 +22,14 @@ type VerificationSectionProps = {
   userName: string;
   status: VerificationUiStatus;
   submitting: boolean;
+  isPermanentResident: boolean;
   hkidNumber: string;
   onHkidNumberChange: (value: string) => void;
   onHkidFileChange: (file: File | null) => void;
   onPaymentFileChange: (file: File | null) => void;
+  nonPrForm: NonPrVerificationForm;
+  onNonPrFormChange: (updates: Partial<NonPrVerificationForm>) => void;
+  onVisaFileChange: (file: File | null) => void;
   onSubmit: (e: React.FormEvent) => void;
   onMenuClick: () => void;
 };
@@ -32,10 +38,14 @@ export function VerificationSection({
   userName,
   status,
   submitting,
+  isPermanentResident,
   hkidNumber,
   onHkidNumberChange,
   onHkidFileChange,
   onPaymentFileChange,
+  nonPrForm,
+  onNonPrFormChange,
+  onVisaFileChange,
   onSubmit,
   onMenuClick,
 }: VerificationSectionProps) {
@@ -153,6 +163,15 @@ export function VerificationSection({
                     required
                   />
                 </div>
+
+                {!isPermanentResident && (
+                  <NonPrVerificationFields
+                    form={nonPrForm}
+                    onChange={onNonPrFormChange}
+                    onVisaFileChange={onVisaFileChange}
+                  />
+                )}
+
                 <Button
                   type="submit"
                   className="h-12 w-full rounded-xl bg-fk-plum text-fk-cream hover:bg-fk-plum/90"

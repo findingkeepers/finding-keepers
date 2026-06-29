@@ -11,6 +11,11 @@ import {
 import { VerifiedDashboard } from "@/components/dashboard/VerifiedDashboard";
 import { sendVerificationPendingEmail } from "@/app/actions/auth";
 import { notifyAdminsVerificationSubmitted } from "@/app/actions/verification";
+import {
+  emptyNonPrVerificationForm,
+  validateNonPrVerification,
+  type NonPrVerificationForm,
+} from "@/lib/non-pr-verification";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -22,6 +27,11 @@ export default function Dashboard() {
   const [hkidNumber, setHkidNumber] = useState("");
   const [hkidFile, setHkidFile] = useState<File | null>(null);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
+  const [visaFile, setVisaFile] = useState<File | null>(null);
+  const [nonPrForm, setNonPrForm] = useState<NonPrVerificationForm>(
+    emptyNonPrVerificationForm
+  );
+  const [isPermanentResident, setIsPermanentResident] = useState(true);
   const [hasCompletedCV, setHasCompletedCV] = useState(false);
   const [userName, setUserName] = useState("");
 
@@ -36,11 +46,17 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, verification_status")
+        .select("full_name, verification_status, is_permanent_resident")
         .eq("id", user.id)
         .maybeSingle();
 
       if (profile?.full_name) setUserName(profile.full_name);
+
+      const metadataPr = user.user_metadata?.is_permanent_resident;
+      const isPr =
+        profile?.is_permanent_resident ??
+        (typeof metadataPr === "boolean" ? metadataPr : true);
+      setIsPermanentResident(isPr);
       if (profile?.verification_status === "verified") {
         setIsVerified(true);
         setLoading(false);
@@ -101,6 +117,14 @@ export default function Dashboard() {
       return;
     }
 
+    if (!isPermanentResident) {
+      const nonPrError = validateNonPrVerification(nonPrForm, visaFile);
+      if (nonPrError) {
+        toast.error(nonPrError);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -159,15 +183,55 @@ export default function Dashboard() {
         .upload(paymentPath, paymentFile);
       if (paymentError) throw paymentError;
 
+      let visaPath: string | null = null;
+      if (!isPermanentResident && visaFile) {
+        visaPath = `${user.id}/visa_${Date.now()}`;
+        const { error: visaError } = await supabase.storage
+          .from("verifications")
+          .upload(visaPath, visaFile);
+        if (visaError) throw visaError;
+      }
+
+      const verificationPayload: Record<string, string | null> = {
+        user_id: user.id,
+        hkid_number: hkidNumber,
+        hkid_image_path: hkidPath,
+        payment_proof_path: paymentPath,
+        status: "pending",
+        years_in_hk: null,
+        years_in_hk_other: null,
+        visa_type: null,
+        visa_type_other: null,
+        visa_document_path: null,
+        referral_name: null,
+        referral_phone: null,
+        referral_email: null,
+        referral_hkid: null,
+      };
+
+      if (!isPermanentResident) {
+        Object.assign(verificationPayload, {
+          years_in_hk: nonPrForm.yearsInHk,
+          years_in_hk_other:
+            nonPrForm.yearsInHk === "Other"
+              ? nonPrForm.yearsInHkOther.trim()
+              : null,
+          visa_type: nonPrForm.visaType,
+          visa_type_other:
+            nonPrForm.visaType === "Other"
+              ? nonPrForm.visaTypeOther.trim()
+              : null,
+          visa_document_path: visaPath,
+          referral_name: nonPrForm.referralName.trim(),
+          referral_phone: nonPrForm.referralPhone.trim(),
+          referral_email: nonPrForm.referralEmail.trim(),
+          referral_hkid: nonPrForm.referralHkid.trim(),
+        });
+      }
+
       const { error: insertError } = await supabase
         .from("verification_requests")
-        .insert({
-          user_id: user.id,
-          hkid_number: hkidNumber,
-          hkid_image_path: hkidPath,
-          payment_proof_path: paymentPath,
-          status: "pending",
-        });
+        .insert(verificationPayload);
 
       if (insertError) {
         if (insertError.code === "23505") {
@@ -206,6 +270,29 @@ export default function Dashboard() {
         email: user.email || "",
         phone: profileForAdmin?.phone || "",
         hkidNumber,
+        isPermanentResident,
+        yearsInHk: isPermanentResident ? undefined : nonPrForm.yearsInHk,
+        yearsInHkOther:
+          !isPermanentResident && nonPrForm.yearsInHk === "Other"
+            ? nonPrForm.yearsInHkOther.trim()
+            : undefined,
+        visaType: isPermanentResident ? undefined : nonPrForm.visaType,
+        visaTypeOther:
+          !isPermanentResident && nonPrForm.visaType === "Other"
+            ? nonPrForm.visaTypeOther.trim()
+            : undefined,
+        referralName: isPermanentResident
+          ? undefined
+          : nonPrForm.referralName.trim(),
+        referralPhone: isPermanentResident
+          ? undefined
+          : nonPrForm.referralPhone.trim(),
+        referralEmail: isPermanentResident
+          ? undefined
+          : nonPrForm.referralEmail.trim(),
+        referralHkid: isPermanentResident
+          ? undefined
+          : nonPrForm.referralHkid.trim(),
       });
 
       if (!adminEmail.ok) {
@@ -216,6 +303,8 @@ export default function Dashboard() {
       setVerificationStatus("pending");
       setHkidFile(null);
       setPaymentFile(null);
+      setVisaFile(null);
+      setNonPrForm(emptyNonPrVerificationForm());
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Failed to submit verification";
@@ -276,10 +365,16 @@ export default function Dashboard() {
         userName={userName}
         status={verificationStatus}
         submitting={submitting}
+        isPermanentResident={isPermanentResident}
         hkidNumber={hkidNumber}
         onHkidNumberChange={setHkidNumber}
         onHkidFileChange={setHkidFile}
         onPaymentFileChange={setPaymentFile}
+        nonPrForm={nonPrForm}
+        onNonPrFormChange={(updates) =>
+          setNonPrForm((current) => ({ ...current, ...updates }))
+        }
+        onVisaFileChange={setVisaFile}
         onSubmit={handleVerificationSubmit}
         onMenuClick={onMenuClick}
       />

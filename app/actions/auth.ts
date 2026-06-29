@@ -3,17 +3,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isResendTestModeRestriction, sendEmail } from "@/lib/email";
+import { getAppUrl } from "@/lib/app-url";
 import { normalizePhone } from "@/lib/phone";
-
-function getAppUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return "http://localhost:3000";
-}
 
 export async function checkPhoneAvailable(phone: string) {
   const normalized = normalizePhone(phone);
@@ -270,6 +261,7 @@ export async function registerUser({
     full_name,
     gender,
     phone: normalizedPhone,
+    is_permanent_resident,
     verification_status: "unverified",
   });
 
