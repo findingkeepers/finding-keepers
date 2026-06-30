@@ -127,6 +127,7 @@ export default function AdminMatchesPage() {
             <option value="contacted">Contacted</option>
             <option value="completed">Completed</option>
             <option value="rejected">Rejected</option>
+            <option value="expired">Expired</option>
           </Select>
         </div>
         <div className="flex items-end">

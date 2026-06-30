@@ -8,6 +8,7 @@ const statusStyles: Record<string, string> = {
   contacted: "bg-sky-50 text-sky-700 border-sky-200",
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejected: "bg-red-50 text-red-700 border-red-200",
+  expired: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
 type StatusBadgeProps = {

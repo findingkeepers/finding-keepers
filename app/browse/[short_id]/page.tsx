@@ -10,8 +10,12 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { toast } from 'sonner';
-import { requestMatch } from '@/app/actions/match';
-import { ACTIVE_MATCH_STATUSES } from '@/lib/match-limits';
+import { expireStaleMatchRequests, requestMatch } from '@/app/actions/match';
+import {
+  blocksNewRequestToPair,
+  countsTowardActiveQuota,
+  MAX_ACTIVE_MATCH_REQUESTS,
+} from '@/lib/match-limits';
 import { gendersAreOpposite } from '@/lib/gender';
 import { User } from 'lucide-react';
 import { formatSelectionWithOther } from '@/lib/cv-other';
@@ -67,6 +71,8 @@ export default function ViewProfilePage() {
 
       setCv(cvData);
 
+      await expireStaleMatchRequests();
+
       try {
         const { data: currentUserCV } = await supabase
           .from('cvs')
@@ -80,7 +86,7 @@ export default function ViewProfilePage() {
 
           const { data: existing } = await supabase
             .from('match_requests')
-            .select('id, status')
+            .select('id, status, created_at')
             .or(
               `and(male_short_id.eq.${current},female_short_id.eq.${viewed}),` +
               `and(male_short_id.eq.${viewed},female_short_id.eq.${current})`
@@ -96,28 +102,38 @@ export default function ViewProfilePage() {
             );
           } else if (
             latestPairRequest &&
-            ACTIVE_MATCH_STATUSES.includes(
-              latestPairRequest.status as (typeof ACTIVE_MATCH_STATUSES)[number]
+            blocksNewRequestToPair(
+              latestPairRequest.status,
+              latestPairRequest.created_at
             )
           ) {
             setRequestSent(true);
           }
 
-          const { count: activeRequestCount } = await supabase
+          const { data: activeRequests } = await supabase
             .from('match_requests')
-            .select('id', { count: 'exact', head: true })
+            .select('id, status, created_at')
             .eq('requested_by_short_id', current)
-            .in('status', [...ACTIVE_MATCH_STATUSES]);
+            .in('status', ['pending', 'approved', 'contacted']);
+
+          const activeRequestCount =
+            activeRequests?.filter((request) =>
+              countsTowardActiveQuota(request.status, request.created_at)
+            ).length ?? 0;
 
           const hasActiveRequestToThisProfile =
             latestPairRequest &&
-            ACTIVE_MATCH_STATUSES.includes(
-              latestPairRequest.status as (typeof ACTIVE_MATCH_STATUSES)[number]
+            blocksNewRequestToPair(
+              latestPairRequest.status,
+              latestPairRequest.created_at
             );
 
-          if ((activeRequestCount ?? 0) >= 3 && !hasActiveRequestToThisProfile) {
+          if (
+            activeRequestCount >= MAX_ACTIVE_MATCH_REQUESTS &&
+            !hasActiveRequestToThisProfile
+          ) {
             setMatchBlockedReason(
-              'You already have 3 active match requests. Wait until one is declined or resolved.'
+              `You already have ${MAX_ACTIVE_MATCH_REQUESTS} active match requests. Wait for a response, rejection, or 7-day expiry before requesting another match.`
             );
           }
         }

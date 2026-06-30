@@ -16,6 +16,12 @@ import {
   isMatchRecipient,
   isMatchRequester,
 } from '@/lib/match-request';
+import { expireStaleMatchRequests } from '@/app/actions/match';
+import {
+  formatPendingExpiryHint,
+  getEffectiveMatchStatus,
+  isPendingExpired,
+} from '@/lib/match-expiry';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +64,8 @@ export default function MyMatchRequestsPage() {
     }
 
     setMyShortId(myCV.short_id);
+
+    await expireStaleMatchRequests();
 
     const { data, error } = await supabase
       .from('match_requests')
@@ -177,8 +185,14 @@ export default function MyMatchRequestsPage() {
             <tbody>
               {visibleRequests.map((req) => {
                 const { fromId } = getMatchDirection(req);
+                const displayStatus = getEffectiveMatchStatus(
+                  req.status,
+                  req.created_at
+                );
                 const canRespond =
-                  activeTab === 'received' && req.status === 'pending';
+                  activeTab === 'received' &&
+                  req.status === 'pending' &&
+                  !isPendingExpired(req.created_at);
 
                 return (
                   <DataTableRow key={req.id}>
@@ -194,7 +208,7 @@ export default function MyMatchRequestsPage() {
                       />
                     </DataTableCell>
                     <DataTableCell>
-                      <StatusBadge status={req.status} />
+                      <StatusBadge status={displayStatus} />
                     </DataTableCell>
                     <DataTableCell>
                       {canRespond ? (
@@ -229,7 +243,13 @@ export default function MyMatchRequestsPage() {
                         </div>
                       ) : activeTab === 'sent' && req.status === 'pending' ? (
                         <span className="text-sm text-muted-foreground">
-                          Awaiting response
+                          {isPendingExpired(req.created_at)
+                            ? 'Expired — you can request again'
+                            : formatPendingExpiryHint(req.created_at)}
+                        </span>
+                      ) : displayStatus === 'expired' ? (
+                        <span className="text-sm text-muted-foreground">
+                          Expired after 7 days — you can request again
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>

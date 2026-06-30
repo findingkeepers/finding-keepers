@@ -5,10 +5,42 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getAdminNotificationEmail, sendEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import {
+  getPendingExpiryCutoffIso,
+  isPendingExpired,
+} from "@/lib/match-expiry";
+import {
   ACTIVE_MATCH_STATUSES,
+  blocksNewRequestToPair,
+  countsTowardActiveQuota,
   MAX_ACTIVE_MATCH_REQUESTS,
 } from "@/lib/match-limits";
 import { getMatchDirection } from "@/lib/match-request";
+
+async function expireStalePendingMatchRequests(
+  admin: NonNullable<ReturnType<typeof createAdminSupabaseClient>>
+) {
+  const cutoff = getPendingExpiryCutoffIso();
+
+  const { error } = await admin
+    .from("match_requests")
+    .update({ status: "expired" })
+    .eq("status", "pending")
+    .lt("created_at", cutoff);
+
+  if (error) {
+    console.error("Expire stale match requests error:", error);
+  }
+}
+
+export async function expireStaleMatchRequests() {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return { ok: false as const, message: "Server configuration is incomplete" };
+  }
+
+  await expireStalePendingMatchRequests(admin);
+  return { ok: true as const };
+}
 
 type PartyDetails = {
   shortId: string;
@@ -186,6 +218,11 @@ export async function requestMatch({
       return { success: false, message: "You must be logged in" };
     }
 
+    const admin = createAdminSupabaseClient();
+    if (admin) {
+      await expireStalePendingMatchRequests(admin);
+    }
+
     const { data: requesterCV } = await supabase
       .from("cvs")
       .select("short_id, data")
@@ -234,7 +271,7 @@ export async function requestMatch({
 
     const { data: existingPairRequests } = await supabase
       .from("match_requests")
-      .select("id, status")
+      .select("id, status, created_at")
       .eq("male_short_id", maleShortId)
       .eq("female_short_id", femaleShortId)
       .order("created_at", { ascending: false });
@@ -249,25 +286,23 @@ export async function requestMatch({
       };
     }
 
-    const activePairRequest = existingPairRequests?.find((request) =>
-      ACTIVE_MATCH_STATUSES.includes(
-        request.status as (typeof ACTIVE_MATCH_STATUSES)[number]
-      )
+    const blockingPairRequest = existingPairRequests?.find((request) =>
+      blocksNewRequestToPair(request.status, request.created_at)
     );
 
-    if (activePairRequest) {
+    if (blockingPairRequest) {
       return {
         success: false,
         message:
-          activePairRequest.status === "pending"
+          blockingPairRequest.status === "pending"
             ? "A match request between these profiles is already awaiting a response"
             : "A match request between these profiles is already in progress",
       };
     }
 
-    const { count: activeRequestCount, error: activeCountError } = await supabase
+    const { data: activeRequests, error: activeCountError } = await supabase
       .from("match_requests")
-      .select("id", { count: "exact", head: true })
+      .select("id, status, created_at")
       .eq("requested_by_short_id", requesterShortId)
       .in("status", [...ACTIVE_MATCH_STATUSES]);
 
@@ -279,10 +314,15 @@ export async function requestMatch({
       };
     }
 
-    if ((activeRequestCount ?? 0) >= MAX_ACTIVE_MATCH_REQUESTS) {
+    const activeRequestCount =
+      activeRequests?.filter((request) =>
+        countsTowardActiveQuota(request.status, request.created_at)
+      ).length ?? 0;
+
+    if (activeRequestCount >= MAX_ACTIVE_MATCH_REQUESTS) {
       return {
         success: false,
-        message: `You can only have ${MAX_ACTIVE_MATCH_REQUESTS} active match requests at a time. Wait until one is declined or resolved before requesting another match.`,
+        message: `You can only have ${MAX_ACTIVE_MATCH_REQUESTS} active match requests at a time. Wait for a response, rejection, or 7-day expiry before requesting another match.`,
       };
     }
 
@@ -393,14 +433,41 @@ export async function respondToMatchRequest({
       return { success: false, message: "Match request not found" };
     }
 
-    if (request.status !== "pending") {
+    const adminForExpiry = createAdminSupabaseClient();
+    if (adminForExpiry) {
+      await expireStalePendingMatchRequests(adminForExpiry);
+    }
+
+    const { data: refreshedRequest } = await supabase
+      .from("match_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (!refreshedRequest) {
+      return { success: false, message: "Match request not found" };
+    }
+
+    if (
+      refreshedRequest.status === "expired" ||
+      (refreshedRequest.status === "pending" &&
+        isPendingExpired(refreshedRequest.created_at))
+    ) {
+      return {
+        success: false,
+        message:
+          "This match request has expired after 7 days without a response",
+      };
+    }
+
+    if (refreshedRequest.status !== "pending") {
       return {
         success: false,
         message: "This match request has already been responded to",
       };
     }
 
-    const { fromId, toId } = getMatchDirection(request);
+    const { fromId, toId } = getMatchDirection(refreshedRequest);
 
     if (toId !== myCV.short_id) {
       return {
