@@ -1,0 +1,15 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "findingkeepers-finding-keepers.vercel.app"
+        }
+      ],
+      "destination": "https://finding-keepers.connecthk.org/:path*",
+      "permanent": true
+    }
+  ]
+}

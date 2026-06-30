@@ -1,3 +1,5 @@
+export const PRODUCTION_APP_URL = "https://finding-keepers.connecthk.org";
+
 /**
  * Canonical app origin for emails, auth redirects, and other user-facing links.
  * Prefer NEXT_PUBLIC_APP_URL in Vercel so links never point at *.vercel.app.
@@ -13,6 +15,7 @@ export function getAppUrl() {
     if (productionUrl) {
       return `https://${productionUrl.replace(/\/$/, "")}`;
     }
+    return PRODUCTION_APP_URL;
   }
 
   const vercelUrl = process.env.VERCEL_URL?.trim();
