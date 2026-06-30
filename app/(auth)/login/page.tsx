@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
 import { resendConfirmationEmail } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     const emailParam = searchParams.get('email');
@@ -53,6 +54,8 @@ function LoginForm() {
     const formData = new FormData(e.currentTarget);
     const loginEmail = formData.get('email') as string;
     const loginPassword = formData.get('password') as string;
+
+    const supabase = createBrowserSupabaseClient(rememberMe);
 
     const { error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
@@ -138,6 +141,20 @@ function LoginForm() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-fk-body">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="size-4 rounded border-input accent-fk-plum"
+          />
+          Remember me on this device
+        </label>
+        <p className="text-xs text-muted-foreground">
+          If unchecked, your session ends when you close this browser tab. Refreshing
+          the page will keep you signed in.
+        </p>
 
         {showResendConfirmation && (
           <div className="rounded-xl border border-fk-gold/40 bg-fk-cream/60 p-4 text-sm text-fk-plum">

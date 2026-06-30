@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { CVPreview } from '@/components/cv/CVPreview';
 import { CVProgressBar } from '@/components/cv/CVProgressBar';
 import { OtherSpecifyField } from '@/components/cv/OtherSpecifyField';
 import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
@@ -37,7 +38,8 @@ export default function CVBuilder() {
   const router = useRouter();
   const { onMenuClick } = useDashboardMenu();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 9;
+  const totalSteps = 10;
+  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [stepWarnings, setStepWarnings] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -236,6 +238,8 @@ export default function CVBuilder() {
       return;
     }
 
+    setSubmitting(true);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -306,6 +310,8 @@ export default function CVBuilder() {
 
     } catch (error: any) {
       toast.error(error.message || "Failed to save CV");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -546,6 +552,19 @@ export default function CVBuilder() {
     </div>
   );
 
+  const renderStep10 = () => (
+    <div className="space-y-6">
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">
+        Step 10: Preview Your CV
+      </h2>
+      <CVPreview
+        data={formData}
+        shortId={formData.shortID || undefined}
+        photoUrl={formData.photoUrl || undefined}
+      />
+    </div>
+  );
+
   const renderStep9 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 9: Guarantor / Wali (Private)</h2>
@@ -631,6 +650,7 @@ export default function CVBuilder() {
           {currentStep === 7 && renderStep7()}
           {currentStep === 8 && renderStep8()}
           {currentStep === 9 && renderStep9()}
+          {currentStep === 10 && renderStep10()}
 
           {stepWarnings.length > 0 && (
             <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -656,10 +676,21 @@ export default function CVBuilder() {
         <Button variant="premium-outline" className="h-11 rounded-xl" onClick={prevStep} disabled={currentStep === 1}>
           Back
         </Button>
-        <Button variant="premium" className="h-11 rounded-xl" onClick={currentStep === totalSteps ? handleSubmit : nextStep}>
+        <Button
+          variant="premium"
+          className="h-11 rounded-xl"
+          disabled={submitting}
+          onClick={currentStep === totalSteps ? handleSubmit : nextStep}
+        >
           {currentStep === totalSteps
-            ? (isEditing ? "Update CV" : "Submit CV")
-            : "Next"}
+            ? submitting
+              ? "Submitting..."
+              : isEditing
+                ? "Confirm & Update CV"
+                : "Confirm & Submit CV"
+            : currentStep === totalSteps - 1
+              ? "Preview CV"
+              : "Next"}
         </Button>
       </div>
     </div>

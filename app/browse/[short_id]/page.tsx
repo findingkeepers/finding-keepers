@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { toast } from 'sonner';
 import { requestMatch } from '@/app/actions/match';
+import { ACTIVE_MATCH_STATUSES } from '@/lib/match-limits';
 import { gendersAreOpposite } from '@/lib/gender';
 import { User } from 'lucide-react';
 import { formatSelectionWithOther } from '@/lib/cv-other';
@@ -26,6 +27,7 @@ export default function ViewProfilePage() {
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [userGender, setUserGender] = useState<string | null>(null);
+  const [matchBlockedReason, setMatchBlockedReason] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
 
   useEffect(() => {
@@ -78,15 +80,45 @@ export default function ViewProfilePage() {
 
           const { data: existing } = await supabase
             .from('match_requests')
-            .select('id')
+            .select('id, status')
             .or(
               `and(male_short_id.eq.${current},female_short_id.eq.${viewed}),` +
               `and(male_short_id.eq.${viewed},female_short_id.eq.${current})`
             )
+            .order('created_at', { ascending: false })
             .limit(1);
 
-          if (existing && existing.length > 0) {
+          const latestPairRequest = existing?.[0];
+
+          if (latestPairRequest?.status === 'rejected') {
+            setMatchBlockedReason(
+              'This match request was declined and cannot be sent again.'
+            );
+          } else if (
+            latestPairRequest &&
+            ACTIVE_MATCH_STATUSES.includes(
+              latestPairRequest.status as (typeof ACTIVE_MATCH_STATUSES)[number]
+            )
+          ) {
             setRequestSent(true);
+          }
+
+          const { count: activeRequestCount } = await supabase
+            .from('match_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('requested_by_short_id', current)
+            .in('status', [...ACTIVE_MATCH_STATUSES]);
+
+          const hasActiveRequestToThisProfile =
+            latestPairRequest &&
+            ACTIVE_MATCH_STATUSES.includes(
+              latestPairRequest.status as (typeof ACTIVE_MATCH_STATUSES)[number]
+            );
+
+          if ((activeRequestCount ?? 0) >= 3 && !hasActiveRequestToThisProfile) {
+            setMatchBlockedReason(
+              'You already have 3 active match requests. Wait until one is declined or resolved.'
+            );
           }
         }
       } catch (err) {
@@ -100,7 +132,7 @@ export default function ViewProfilePage() {
   }, [short_id, router]);
 
   const handleRequestMatch = async () => {
-    if (!cv || !userGender || requestSent) return;
+    if (!cv || !userGender || requestSent || matchBlockedReason) return;
 
     setSending(true);
 
@@ -114,8 +146,15 @@ export default function ViewProfilePage() {
       if (result.success) {
         toast.success("Match request sent! They will be notified by email.");
         setRequestSent(true);
+        setMatchBlockedReason(null);
       } else {
         toast.error(result.message || "Failed to send request");
+        if (
+          result.message?.includes('declined') ||
+          result.message?.includes('3 active')
+        ) {
+          setMatchBlockedReason(result.message);
+        }
       }
     } catch {
       toast.error("Something went wrong");
@@ -180,18 +219,25 @@ export default function ViewProfilePage() {
             )}
 
             {isOppositeGender && (
-              <Button
-                variant="premium"
-                className="h-11 w-full rounded-xl"
-                onClick={handleRequestMatch}
-                disabled={sending || requestSent}
-              >
-                {requestSent
-                  ? "Request Sent"
-                  : sending
-                    ? "Sending Request..."
-                    : "Request Match"}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  variant="premium"
+                  className="h-11 w-full rounded-xl"
+                  onClick={handleRequestMatch}
+                  disabled={sending || requestSent || Boolean(matchBlockedReason)}
+                >
+                  {requestSent
+                    ? "Request Sent"
+                    : matchBlockedReason
+                      ? "Request Unavailable"
+                      : sending
+                        ? "Sending Request..."
+                        : "Request Match"}
+                </Button>
+                {matchBlockedReason && (
+                  <p className="text-xs text-muted-foreground">{matchBlockedReason}</p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

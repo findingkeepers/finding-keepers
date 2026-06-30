@@ -4,6 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getAdminNotificationEmail, sendEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
+import {
+  ACTIVE_MATCH_STATUSES,
+  MAX_ACTIVE_MATCH_REQUESTS,
+} from "@/lib/match-limits";
 import { getMatchDirection } from "@/lib/match-request";
 
 type PartyDetails = {
@@ -228,21 +232,57 @@ export async function requestMatch({
     const maleShortId = isRequesterMale ? requesterShortId : requestedShortId;
     const femaleShortId = isRequesterMale ? requestedShortId : requesterShortId;
 
-    const { data: existingRequest } = await supabase
+    const { data: existingPairRequests } = await supabase
       .from("match_requests")
       .select("id, status")
       .eq("male_short_id", maleShortId)
       .eq("female_short_id", femaleShortId)
-      .in("status", ["pending", "approved", "contacted"])
-      .maybeSingle();
+      .order("created_at", { ascending: false });
 
-    if (existingRequest) {
+    const latestPairRequest = existingPairRequests?.[0];
+
+    if (latestPairRequest?.status === "rejected") {
       return {
         success: false,
         message:
-          existingRequest.status === "pending"
+          "This match request was declined and cannot be sent to this profile again",
+      };
+    }
+
+    const activePairRequest = existingPairRequests?.find((request) =>
+      ACTIVE_MATCH_STATUSES.includes(
+        request.status as (typeof ACTIVE_MATCH_STATUSES)[number]
+      )
+    );
+
+    if (activePairRequest) {
+      return {
+        success: false,
+        message:
+          activePairRequest.status === "pending"
             ? "A match request between these profiles is already awaiting a response"
             : "A match request between these profiles is already in progress",
+      };
+    }
+
+    const { count: activeRequestCount, error: activeCountError } = await supabase
+      .from("match_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("requested_by_short_id", requesterShortId)
+      .in("status", [...ACTIVE_MATCH_STATUSES]);
+
+    if (activeCountError) {
+      console.error("Active match request count error:", activeCountError);
+      return {
+        success: false,
+        message: "Could not verify your current match requests",
+      };
+    }
+
+    if ((activeRequestCount ?? 0) >= MAX_ACTIVE_MATCH_REQUESTS) {
+      return {
+        success: false,
+        message: `You can only have ${MAX_ACTIVE_MATCH_REQUESTS} active match requests at a time. Wait until one is declined or resolved before requesting another match.`,
       };
     }
 
