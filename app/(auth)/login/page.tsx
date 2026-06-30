@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
+import {
+  clearStoredAuthSessions,
+  createBrowserSupabaseClient,
+} from '@/lib/supabase/browser';
 import { resendConfirmationEmail } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +58,7 @@ function LoginForm() {
     const loginEmail = formData.get('email') as string;
     const loginPassword = formData.get('password') as string;
 
+    clearStoredAuthSessions();
     const supabase = createBrowserSupabaseClient(rememberMe);
 
     const { error } = await supabase.auth.signInWithPassword({
