@@ -161,6 +161,22 @@ export const CVPdf = ({ data }: CVPdfProps) => (
       <Text style={styles.label}>Work-life balance:</Text>
       <Text style={styles.value}>{data.workLifeBalance}</Text>
 
+      <Text style={styles.sectionTitle}>Work / Finances</Text>
+      <Text style={styles.label}>Definition of wealth:</Text>
+      <Text style={styles.value}>{data.wealthDefinition}</Text>
+
+      <Text style={styles.label}>How you spend money:</Text>
+      <Text style={styles.value}>{data.howSpendMoney}</Text>
+
+      <Text style={styles.label}>How you save money:</Text>
+      <Text style={styles.value}>{data.howSaveMoney}</Text>
+
+      <Text style={styles.label}>Dream job:</Text>
+      <Text style={styles.value}>{data.dreamJob}</Text>
+
+      <Text style={styles.label}>House finances management:</Text>
+      <Text style={styles.value}>{data.houseFinancesManagement}</Text>
+
       {/* Step 5 */}
       <Text style={styles.sectionTitle}>Values, Religion & Faith</Text>
       <Text style={styles.label}>Important values:</Text>

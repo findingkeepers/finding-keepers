@@ -16,7 +16,14 @@ import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
-import { ETHNICITY_OPTIONS, MAX_PROFILE_PHOTO_BYTES, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
+import {
+  ETHNICITY_OPTIONS,
+  LEGACY_PARTNER_AGE_UNDER_25,
+  MAX_PROFILE_PHOTO_BYTES,
+  PARTNER_AGE_RANGE_OPTIONS,
+  PARTNER_EDUCATION_OPTIONS,
+  RESIDENCY_OPTIONS,
+} from '@/lib/cv-constants';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import { useRouter } from 'next/navigation';
 
@@ -30,7 +37,7 @@ export default function CVBuilder() {
   const router = useRouter();
   const { onMenuClick } = useDashboardMenu();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 8;
+  const totalSteps = 9;
   const [errors, setErrors] = useState<string[]>([]);
   const [stepWarnings, setStepWarnings] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,7 +54,9 @@ export default function CVBuilder() {
     familyRole: '', closestFamilyMember: '', hobbies: '', favoriteBooksMovies: '',
     hangoutWithFriends: '', relaxMethod: '', longTermGoals: '', idealCoupleLifestyle: '',
     selfImprovement: '', workLifeBalance: '',
-    importantValues: '', beliefsShapeLife: '', faithInDailyLife: '', 
+    wealthDefinition: '', howSpendMoney: '', howSaveMoney: '', dreamJob: '',
+    houseFinancesManagement: '',
+    importantValues: '', beliefsShapeLife: '', faithInDailyLife: '',
     prayerCommunityRole: '', faithWithSpouse: '', raisingChildrenIslamic: '',
     conflictResolution: '', handleStress: '', handleDisagreements: '', communicationRole: '',
     selfDescription: '', residencyStatus: '', residencyStatusOther: '',
@@ -86,15 +95,24 @@ export default function CVBuilder() {
         .eq('user_id', user.id)
         .maybeSingle();
 
+      const normalizeLoadedCvData = (data: Record<string, string>) => {
+        const normalized = { ...data };
+        if (normalized.partnerAgeRange === LEGACY_PARTNER_AGE_UNDER_25) {
+          normalized.partnerAgeRange = PARTNER_AGE_RANGE_OPTIONS[0];
+        }
+        return normalized;
+      };
+
       if (existingCV) {
         setIsEditing(true);
         setExistingCVId(existingCV.id);
+        const loadedData = normalizeLoadedCvData(existingCV.data || {});
 
         setFormData(prev => ({
           ...prev,
-          ...(existingCV.data || {}),
-          fullName: registrationName || existingCV.data?.fullName || '',
-          gender: registrationGender || existingCV.data?.gender || '',
+          ...loadedData,
+          fullName: registrationName || loadedData.fullName || '',
+          gender: registrationGender || loadedData.gender || '',
           shortID: existingCV.short_id || '',
           photoUrl: existingCV.photo_url || '',
         }));
@@ -103,7 +121,7 @@ export default function CVBuilder() {
 
       // New CV: restore draft fields but keep registration name + gender
       const saved = localStorage.getItem('cv_form_data');
-      const draft = saved ? JSON.parse(saved) : {};
+      const draft = saved ? normalizeLoadedCvData(JSON.parse(saved)) : {};
 
       setFormData(prev => ({
         ...prev,
@@ -420,30 +438,60 @@ export default function CVBuilder() {
       <div className="space-y-2"><Label>What are your deal breakers?</Label><Textarea value={formData.dealBreakers} onChange={(e) => handleChange('dealBreakers', e.target.value)} rows={3} /></div>
       <div className="space-y-2"><Label>What are you seeking in a partner? (min 100 characters)</Label><Textarea value={formData.whatSeeking} onChange={(e) => handleChange('whatSeeking', e.target.value)} rows={3} /></div>
 
-      <div className="space-y-2"><Label>Partner’s Age Range</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        {["Less than 25 years", "Between 25 to 30 years", "Between 30 to 35 years", "Above 35 years"].map(opt => (
-          <label key={opt} className="flex items-center gap-2"><input type="radio" name="partnerAgeRange" value={opt} checked={formData.partnerAgeRange === opt} onChange={(e) => handleChange('partnerAgeRange', e.target.value)} /> {opt}</label>
-        ))}
-      </div></div>
-
-      <div className="space-y-2"><Label>Partner’s Education</Label><div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        {["Secondary School", "Diploma/ Associate Degree", "Under-graduate", "Graduate/Post-graduate"].map(opt => (
-          <label key={opt} className="flex items-center gap-2"><input type="radio" name="partnerEducation" value={opt} checked={formData.partnerEducation === opt} onChange={(e) => handleChange('partnerEducation', e.target.value)} /> {opt}</label>
-        ))}
-      </div></div>
-
-      <div className="space-y-2"><Label>Partner’s Ethnic Background (Select all that apply)</Label><div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-        {["Chinese", "Pakistani", "Indian", "Bangladeshi", "Malaysian", "Indonesian", "Philippines", "Other"].map(opt => (
-          <label key={opt} className="flex items-center gap-2">
-            <input type="checkbox" checked={formData.partnerEthnicBackground?.includes(opt) || false} onChange={() => handleMultiSelect('partnerEthnicBackground', opt, 'partnerEthnicBackgroundOther')} /> {opt}
-          </label>
-        ))}
+      <div className="space-y-2">
+        <Label>Partner&apos;s Age Range</Label>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {PARTNER_AGE_RANGE_OPTIONS.map((opt) => (
+            <label key={opt} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="partnerAgeRange"
+                value={opt}
+                checked={formData.partnerAgeRange === opt}
+                onChange={(e) => handleChange('partnerAgeRange', e.target.value)}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
       </div>
+
+      <div className="space-y-2">
+        <Label>Partner&apos;s Education (Select all that apply)</Label>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {PARTNER_EDUCATION_OPTIONS.map((opt) => (
+            <label key={opt} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.partnerEducation?.split(', ').includes(opt) || false}
+                onChange={() => handleMultiSelect('partnerEducation', opt)}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Partner&apos;s Ethnic Background (Select all that apply)</Label>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {ETHNICITY_OPTIONS.map((opt) => (
+            <label key={opt} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.partnerEthnicBackground?.split(', ').includes(opt) || false}
+                onChange={() => handleMultiSelect('partnerEthnicBackground', opt, 'partnerEthnicBackgroundOther')}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
         <OtherSpecifyField
           show={multiSelectIncludesOther(formData.partnerEthnicBackground)}
-          label="Please specify other partner ethnic background(s)"
+          label="Please specify ethnicity"
           value={formData.partnerEthnicBackgroundOther}
           onChange={(value) => handleChange('partnerEthnicBackgroundOther', value)}
+          placeholder="e.g. Arab, British, mixed heritage"
         />
       </div>
     </div>
@@ -467,13 +515,12 @@ export default function CVBuilder() {
 
   const renderStep6 = () => (
     <div className="space-y-6">
-      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 6: Values, Religion & Faith</h2>
-      <div className="space-y-2"><Label>What values are most important to you in life?</Label><Textarea value={formData.importantValues} onChange={(e) => handleChange('importantValues', e.target.value)} rows={3} /></div>
-      <div className="space-y-2"><Label>How do your beliefs shape your daily activities and decisions?</Label><Textarea value={formData.beliefsShapeLife} onChange={(e) => handleChange('beliefsShapeLife', e.target.value)} rows={3} /></div>
-      <div className="space-y-2"><Label>How do you incorporate your faith into your daily life?</Label><Textarea value={formData.faithInDailyLife} onChange={(e) => handleChange('faithInDailyLife', e.target.value)} rows={3} /></div>
-      <div className="space-y-2"><Label>What role does prayer and community play in your life?</Label><Textarea value={formData.prayerCommunityRole} onChange={(e) => handleChange('prayerCommunityRole', e.target.value)} rows={3} /></div>
-      <div className="space-y-2"><Label>How do you envision practicing your faith together with your future spouse?</Label><Textarea value={formData.faithWithSpouse} onChange={(e) => handleChange('faithWithSpouse', e.target.value)} rows={3} /></div>
-      <div className="space-y-2"><Label>What are your views on raising children in accordance with Islamic values?</Label><Textarea value={formData.raisingChildrenIslamic} onChange={(e) => handleChange('raisingChildrenIslamic', e.target.value)} rows={3} /></div>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 6: Work / Finances</h2>
+      <div className="space-y-2"><Label>What is your definition of wealth?</Label><Textarea value={formData.wealthDefinition} onChange={(e) => handleChange('wealthDefinition', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you spend your money?</Label><Textarea value={formData.howSpendMoney} onChange={(e) => handleChange('howSpendMoney', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you save your money?</Label><Textarea value={formData.howSaveMoney} onChange={(e) => handleChange('howSaveMoney', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What&apos;s your dream job?</Label><Textarea value={formData.dreamJob} onChange={(e) => handleChange('dreamJob', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How should the house finances be managed?</Label><Textarea value={formData.houseFinancesManagement} onChange={(e) => handleChange('houseFinancesManagement', e.target.value)} rows={3} /></div>
     </div>
   );
 
@@ -489,7 +536,19 @@ export default function CVBuilder() {
 
   const renderStep8 = () => (
     <div className="space-y-6">
-      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 8: Guarantor / Wali (Private)</h2>
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 8: Values, Religion & Faith</h2>
+      <div className="space-y-2"><Label>What values are most important to you in life?</Label><Textarea value={formData.importantValues} onChange={(e) => handleChange('importantValues', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do your beliefs shape your daily activities and decisions?</Label><Textarea value={formData.beliefsShapeLife} onChange={(e) => handleChange('beliefsShapeLife', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you incorporate your faith into your daily life?</Label><Textarea value={formData.faithInDailyLife} onChange={(e) => handleChange('faithInDailyLife', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What role does prayer and community play in your life?</Label><Textarea value={formData.prayerCommunityRole} onChange={(e) => handleChange('prayerCommunityRole', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>How do you envision practicing your faith together with your future spouse?</Label><Textarea value={formData.faithWithSpouse} onChange={(e) => handleChange('faithWithSpouse', e.target.value)} rows={3} /></div>
+      <div className="space-y-2"><Label>What are your views on raising children in accordance with Islamic values?</Label><Textarea value={formData.raisingChildrenIslamic} onChange={(e) => handleChange('raisingChildrenIslamic', e.target.value)} rows={3} /></div>
+    </div>
+  );
+
+  const renderStep9 = () => (
+    <div className="space-y-6">
+      <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 9: Guarantor / Wali (Private)</h2>
       <div className="space-y-2"><Label>Involvement of Parents/Wali</Label><div className="grid grid-cols-1 gap-2 mt-2">
         {["My parents/wali will be involved from the beginning", "My parents/wali will be involved if I have found a match", "I do not wish to involve my parents/wali"].map(opt => (
           <label key={opt} className="flex items-center gap-2"><input type="radio" name="waliInvolvement" value={opt} checked={formData.waliInvolvement === opt} onChange={(e) => handleChange('waliInvolvement', e.target.value)} /> {opt}</label>
@@ -571,6 +630,7 @@ export default function CVBuilder() {
           {currentStep === 6 && renderStep6()}
           {currentStep === 7 && renderStep7()}
           {currentStep === 8 && renderStep8()}
+          {currentStep === 9 && renderStep9()}
 
           {stepWarnings.length > 0 && (
             <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">

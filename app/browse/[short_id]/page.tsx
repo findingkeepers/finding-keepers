@@ -233,18 +233,26 @@ export default function ViewProfilePage() {
           <CVField label="Ideal lifestyle as a couple" value={data.idealCoupleLifestyle} />
         </CVSectionCard>
 
-        <CVSectionCard title="Values, Religion & Faith" index={3}>
+        <CVSectionCard title="Work / Finances" index={3}>
+          <CVField label="Definition of wealth" value={data.wealthDefinition} />
+          <CVField label="How you spend money" value={data.howSpendMoney} />
+          <CVField label="How you save money" value={data.howSaveMoney} />
+          <CVField label="Dream job" value={data.dreamJob} />
+          <CVField label="House finances management" value={data.houseFinancesManagement} />
+        </CVSectionCard>
+
+        <CVSectionCard title="Values, Religion & Faith" index={4}>
           <CVField label="Important values" value={data.importantValues} />
           <CVField label="Faith in daily life" value={data.faithInDailyLife} />
           <CVField label="Practicing faith with spouse" value={data.faithWithSpouse} />
         </CVSectionCard>
 
-        <CVSectionCard title="Communication & Conflict Resolution" index={4}>
+        <CVSectionCard title="Communication & Conflict Resolution" index={5}>
           <CVField label="Approach to conflict" value={data.conflictResolution} />
           <CVField label="Handling disagreements" value={data.handleDisagreements} />
         </CVSectionCard>
 
-        <CVSectionCard title="Detailed Information" index={5}>
+        <CVSectionCard title="Detailed Information" index={6}>
           <CVField label="Self Description" value={data.selfDescription} />
           <CVField label="Religious History" value={data.religiousHistory} />
           <CVField label="Do you pray?" value={data.prayLevel} />

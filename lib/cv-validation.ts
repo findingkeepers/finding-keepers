@@ -113,7 +113,11 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         warnings.push("What you are seeking must be at least 100 characters");
       }
       requireSelection(warnings, data.partnerAgeRange, "Partner's age range");
-      requireSelection(warnings, data.partnerEducation, "Partner's education");
+      requireSelection(
+        warnings,
+        data.partnerEducation,
+        "Partner's education (select at least one)"
+      );
       requireSelection(
         warnings,
         data.partnerEthnicBackground,
@@ -153,6 +157,33 @@ export function getStepWarnings(step: number, data: FormData): string[] {
       break;
 
     case 6:
+      requireText(warnings, data.wealthDefinition, "Your definition of wealth");
+      requireText(warnings, data.howSpendMoney, "How you spend your money");
+      requireText(warnings, data.howSaveMoney, "How you save your money");
+      requireText(warnings, data.dreamJob, "Your dream job");
+      requireText(
+        warnings,
+        data.houseFinancesManagement,
+        "How house finances should be managed"
+      );
+      break;
+
+    case 7:
+      requireText(warnings, data.conflictResolution, "Approach to conflict resolution");
+      requireText(warnings, data.handleStress, "How you handle stress");
+      requireText(
+        warnings,
+        data.handleDisagreements,
+        "How you handle disagreements"
+      );
+      requireText(
+        warnings,
+        data.communicationRole,
+        "Role of communication in resolving issues"
+      );
+      break;
+
+    case 8:
       requireText(warnings, data.importantValues, "Important values in life");
       requireText(
         warnings,
@@ -181,22 +212,7 @@ export function getStepWarnings(step: number, data: FormData): string[] {
       );
       break;
 
-    case 7:
-      requireText(warnings, data.conflictResolution, "Approach to conflict resolution");
-      requireText(warnings, data.handleStress, "How you handle stress");
-      requireText(
-        warnings,
-        data.handleDisagreements,
-        "How you handle disagreements"
-      );
-      requireText(
-        warnings,
-        data.communicationRole,
-        "Role of communication in resolving issues"
-      );
-      break;
-
-    case 8:
+    case 9:
       requireSelection(warnings, data.waliInvolvement, "Wali involvement");
       requireText(
         warnings,
@@ -230,5 +246,5 @@ export function getStepWarnings(step: number, data: FormData): string[] {
 }
 
 export function validateFullForm(data: FormData): string[] {
-  return Array.from({ length: 8 }, (_, i) => getStepWarnings(i + 1, data)).flat();
+  return Array.from({ length: 9 }, (_, i) => getStepWarnings(i + 1, data)).flat();
 }
