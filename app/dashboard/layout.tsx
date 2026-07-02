@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { bootstrapClientSession } from "@/lib/auth/bootstrap-session";
+import { requireClientSession } from "@/lib/auth/require-client-session";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { DashboardLayoutProvider } from "@/components/dashboard/DashboardLayoutProvider";
 import {
   isUserVerified,
@@ -23,10 +24,8 @@ export default function DashboardLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const session = await bootstrapClientSession();
-
-      if (!session.authenticated) {
-        router.push("/login");
+      const authed = await requireClientSession();
+      if (!authed) {
         return;
       }
 
@@ -35,7 +34,7 @@ export default function DashboardLayout({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/login");
+        redirectToLogin();
         return;
       }
 

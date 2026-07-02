@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { bootstrapClientSession } from "@/lib/auth/bootstrap-session";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -28,7 +29,6 @@ function isPublicPath(pathname: string) {
 
 export function SessionBootstrap() {
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     if (isPublicPath(pathname)) {
@@ -36,11 +36,13 @@ export function SessionBootstrap() {
     }
 
     void bootstrapClientSession().then((result) => {
-      if (result.tabExpired) {
-        router.replace("/login");
+      if (!result.authenticated) {
+        redirectToLogin(
+          pathname.startsWith("/fk-admin") ? "/fk-admin/login" : "/login"
+        );
       }
     });
-  }, [pathname, router]);
+  }, [pathname]);
 
   return null;
 }

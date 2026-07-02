@@ -4,7 +4,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { bootstrapClientSession } from "@/lib/auth/bootstrap-session";
+import { requireClientSession } from "@/lib/auth/require-client-session";
+import { redirectToLogin } from "@/lib/auth/redirect-to-login";
 import { performClientLogout } from "@/lib/auth/logout-client";
 import { LoadingSpinner } from "@/components/layout/LoadingSpinner";
 import { AdminSidebar } from "./AdminSidebar";
@@ -32,10 +33,8 @@ export function AdminLayoutProvider({
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const session = await bootstrapClientSession();
-
-      if (!session.authenticated) {
-        router.push("/fk-admin/login");
+      const authed = await requireClientSession("/fk-admin/login");
+      if (!authed) {
         return;
       }
 
@@ -44,7 +43,7 @@ export function AdminLayoutProvider({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/fk-admin/login");
+        redirectToLogin("/fk-admin/login");
         return;
       }
 

@@ -81,7 +81,9 @@ export async function bootstrapClientSession(): Promise<BootstrapResult> {
   }
 
   inflight = runBootstrap().then((result) => {
-    cachedResult = result;
+    if (!result.tabExpired) {
+      cachedResult = result;
+    }
     inflight = null;
     return result;
   });
