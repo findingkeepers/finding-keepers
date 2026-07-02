@@ -8,7 +8,7 @@ import {
 } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
-import { assertAdmin } from "@/lib/auth/guards";
+import { assertAdmin, assertProfileVerified } from "@/lib/auth/guards";
 import { escapeHtml } from "@/lib/html-escape";
 
 function buildVerifiedEmailHtml(fullName: string) {
@@ -239,6 +239,42 @@ export async function notifyAdminsVerificationSubmitted({
     ok: false as const,
     message: result.message || "Could not notify admin team",
   };
+}
+
+export async function getUserVerificationHkid() {
+  const auth = await assertProfileVerified();
+  if (!auth.ok) {
+    return { ok: false as const, message: auth.message, hkid: null };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("verification_requests")
+    .select("hkid_number")
+    .eq("user_id", auth.user.id)
+    .order("submitted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Verification HKID lookup error:", error);
+    return {
+      ok: false as const,
+      message: "Could not load HKID from verification",
+      hkid: null,
+    };
+  }
+
+  const hkid = data?.hkid_number?.trim() || null;
+  if (!hkid) {
+    return {
+      ok: false as const,
+      message: "No HKID found on your verification record",
+      hkid: null,
+    };
+  }
+
+  return { ok: true as const, hkid };
 }
 
 export async function updateVerificationStatus({

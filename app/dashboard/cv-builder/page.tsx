@@ -14,6 +14,7 @@ import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { toast } from 'sonner';
 import { allocateUniqueShortId } from '@/app/actions/cv';
+import { getUserVerificationHkid } from '@/app/actions/verification';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
@@ -76,15 +77,10 @@ export default function CVBuilder() {
         setLockedGender(registrationGender);
       }
 
-      const { data: verificationRequest } = await supabase
-        .from('verification_requests')
-        .select('hkid_number')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const verificationHkid = verificationRequest?.hkid_number?.trim() || '';
+      const verificationHkidResult = await getUserVerificationHkid();
+      const verificationHkid = verificationHkidResult.ok
+        ? verificationHkidResult.hkid
+        : '';
       if (verificationHkid) {
         setLockedHkid(verificationHkid);
       }
