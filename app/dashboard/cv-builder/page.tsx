@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,14 @@ import {
   RESIDENCY_OPTIONS,
 } from '@/lib/cv-constants';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
+import {
+  clearCvDraft,
+  createEmptyCvFormData,
+  loadCvDraft,
+  mergeCvFormData,
+  saveCvDraft,
+  type CvFormData,
+} from '@/lib/cv-draft';
 import { useRouter } from 'next/navigation';
 
 export default function CVBuilder() {
@@ -39,30 +47,9 @@ export default function CVBuilder() {
   const [stepWarnings, setStepWarnings] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [existingCVId, setExistingCVId] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    fullName: '', gender: '', hkidNumber: '', height: '', weight: '', photoUrl: '',
-    senseOfHumor: '', motivation: '', changeAboutSelf: '', peopleGetAlongWith: '',
-    partnerQualities: '', marriageVision: '', sharedInterestsImportance: '', 
-    partnershipGrowth: '', dealBreakers: '', whatSeeking: '',
-    partnerAgeRange: '', partnerEducation: '', partnerEthnicBackground: '',
-    partnerEthnicBackgroundOther: '',
-    partnerSect: '', partnerReligiousHistory: '', partnerReligiosity: '',
-    familyRole: '', closestFamilyMember: '', hobbies: '', favoriteBooksMovies: '',
-    hangoutWithFriends: '', relaxMethod: '', longTermGoals: '', idealCoupleLifestyle: '',
-    selfImprovement: '', workLifeBalance: '',
-    wealthDefinition: '', howSpendMoney: '', howSaveMoney: '', dreamJob: '',
-    houseFinancesManagement: '',
-    importantValues: '', beliefsShapeLife: '', faithInDailyLife: '',
-    prayerCommunityRole: '', faithWithSpouse: '', raisingChildrenIslamic: '',
-    conflictResolution: '', handleStress: '', handleDisagreements: '', communicationRole: '',
-    selfDescription: '', residencyStatus: '', residencyStatusOther: '',
-    ethnicBackground: '', ethnicBackgroundOther: '', occupation: '', education: '',
-    maritalStatus: '', religiousHistory: '', prayLevel: '', sect: '', sectOther: '',
-    waliInvolvement: '', waliReason: '', waliRelationship: '', waliRelationshipOther: '', waliName: '',
-    waliHKID: '', waliPhone: '', waliEmail: '', waliAddress: '', showWaliOnProfile: 'no',
-    shortID: '',
-  });
+  const [formData, setFormData] = useState(createEmptyCvFormData);
+  const draftReadyRef = useRef(false);
+  const userIdRef = useRef<string | null>(null);
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [lockedGender, setLockedGender] = useState('');
@@ -100,40 +87,87 @@ export default function CVBuilder() {
         return normalized;
       };
 
-      if (existingCV) {
-        setIsEditing(true);
-        setExistingCVId(existingCV.id);
-        const loadedData = normalizeLoadedCvData(existingCV.data || {});
+      const draft = loadCvDraft(user.id);
+      userIdRef.current = user.id;
 
-        setFormData(prev => ({
-          ...prev,
+      if (existingCV) {
+        const editing = true;
+        const cvId = existingCV.id;
+        const loadedData = normalizeLoadedCvData(existingCV.data || {});
+        const baseForm = mergeCvFormData(createEmptyCvFormData(), {
           ...loadedData,
-          fullName: registrationName || loadedData.fullName || '',
-          gender: registrationGender || loadedData.gender || '',
-          shortID: existingCV.short_id || '',
-          photoUrl: existingCV.photo_url || '',
-        }));
-        return;
+          fullName: registrationName || loadedData.fullName || "",
+          gender: registrationGender || loadedData.gender || "",
+          shortID: existingCV.short_id || "",
+          photoUrl: existingCV.photo_url || "",
+        });
+
+        setIsEditing(editing);
+        setExistingCVId(cvId);
+
+        if (draft && draft.existingCVId === cvId) {
+          const savedDraft = draft;
+          setFormData(
+            mergeCvFormData(baseForm, {
+              ...normalizeLoadedCvData(savedDraft.formData),
+              fullName:
+                registrationName ||
+                savedDraft.formData.fullName ||
+                baseForm.fullName,
+              gender:
+                registrationGender ||
+                savedDraft.formData.gender ||
+                baseForm.gender,
+            })
+          );
+          setCurrentStep(
+            savedDraft.currentStep >= 1 && savedDraft.currentStep <= totalSteps
+              ? savedDraft.currentStep
+              : 1
+          );
+        } else {
+          setFormData(baseForm);
+        }
+      } else if (draft && !draft.existingCVId) {
+        setFormData(
+          mergeCvFormData(createEmptyCvFormData(), {
+            ...normalizeLoadedCvData(draft.formData),
+            fullName: registrationName || draft.formData.fullName || "",
+            gender: registrationGender || draft.formData.gender || "",
+          })
+        );
+        setCurrentStep(
+          draft.currentStep >= 1 && draft.currentStep <= totalSteps
+            ? draft.currentStep
+            : 1
+        );
+      } else {
+        setFormData(
+          mergeCvFormData(createEmptyCvFormData(), {
+            fullName: registrationName,
+            gender: registrationGender || "",
+          })
+        );
       }
 
-      // New CV: restore draft fields but keep registration name + gender
-      const saved = localStorage.getItem('cv_form_data');
-      const draft = saved ? normalizeLoadedCvData(JSON.parse(saved)) : {};
-
-      setFormData(prev => ({
-        ...prev,
-        ...draft,
-        fullName: registrationName || draft.fullName || '',
-        gender: registrationGender || draft.gender || '',
-      }));
+      draftReadyRef.current = true;
     };
 
     loadForm();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cv_form_data', JSON.stringify(formData));
-  }, [formData]);
+    if (!draftReadyRef.current || !userIdRef.current) {
+      return;
+    }
+
+    saveCvDraft(userIdRef.current, {
+      formData,
+      currentStep,
+      isEditing,
+      existingCVId,
+    });
+  }, [formData, currentStep, isEditing, existingCVId]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -260,7 +294,7 @@ export default function CVBuilder() {
         return;
       }
 
-      const payload = {
+      const payload: CvFormData = {
         ...formData,
         gender: enforcedGender,
       };
@@ -307,6 +341,8 @@ export default function CVBuilder() {
       link.download = `CV_${shortID}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
+
+      clearCvDraft(user.id);
 
       toast.success(isEditing ? "CV Updated Successfully!" : "CV Submitted Successfully!");
 

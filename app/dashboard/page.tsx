@@ -16,6 +16,7 @@ import {
   validateNonPrVerification,
   type NonPrVerificationForm,
 } from "@/lib/non-pr-verification";
+import { clearCvDraft } from "@/lib/cv-draft";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -323,7 +324,7 @@ export default function Dashboard() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      localStorage.removeItem("cv_form_data");
+      clearCvDraft(user.id);
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith("match_request_")) localStorage.removeItem(key);
       });
