@@ -3,8 +3,64 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { assertProfileVerified } from "@/lib/auth/guards";
 import { gendersAreOpposite } from "@/lib/gender";
-import { redactCvDataForBrowse } from "@/lib/cv-browse";
+import { pickBrowseListData, redactCvDataForBrowse } from "@/lib/cv-browse";
 import { shouldShowWaliOnBrowseProfile } from "@/lib/cv-privacy";
+
+export type BrowsableProfileSummary = {
+  short_id: string;
+  photo_url: string | null;
+  occupation?: string;
+  education?: string;
+  ethnicBackground?: string;
+  residencyStatus?: string;
+};
+
+export async function getBrowsableProfiles() {
+  const auth = await assertProfileVerified();
+  if (!auth.ok) {
+    return { ok: false as const, message: auth.message, code: auth.code };
+  }
+
+  const supabase = await createServerSupabaseClient();
+
+  const { data: viewerProfile } = await supabase
+    .from("profiles")
+    .select("gender")
+    .eq("id", auth.user.id)
+    .maybeSingle();
+
+  const { data: cvs, error } = await supabase
+    .from("cvs")
+    .select("short_id, photo_url, data, user_id")
+    .neq("user_id", auth.user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Browse list error:", error);
+    return { ok: false as const, message: "Could not load profiles" };
+  }
+
+  const profiles: BrowsableProfileSummary[] = (cvs ?? [])
+    .filter((cv) =>
+      gendersAreOpposite(
+        viewerProfile?.gender,
+        (cv.data as Record<string, string>)?.gender
+      )
+    )
+    .map((cv) => {
+      const listData = pickBrowseListData(
+        (cv.data as Record<string, string>) || {}
+      );
+
+      return {
+        short_id: cv.short_id,
+        photo_url: cv.photo_url,
+        ...listData,
+      };
+    });
+
+  return { ok: true as const, profiles };
+}
 
 export async function getBrowsableProfile(shortId: string) {
   const auth = await assertProfileVerified();

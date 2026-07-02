@@ -341,8 +341,6 @@ export async function registerUser({
     };
   }
 
-  const appUrl = getAppUrl();
-  const redirectTo = `${appUrl}/auth/confirm?next=/login`;
   const userMetadata = {
     full_name,
     gender,
@@ -363,25 +361,7 @@ export async function registerUser({
       createError.message.includes("already been registered") ||
       createError.message.includes("already registered");
 
-    if (!alreadyRegistered) {
-      console.error("Create user error:", createError);
-      return { ok: false as const, message: createError.message };
-    }
-  }
-
-  let userId = createdUser.user?.id;
-
-  if (!userId) {
-    const { data: linkData, error: linkError } =
-      await admin.auth.admin.generateLink({
-        type: "signup",
-        email,
-        password,
-        options: { redirectTo, data: userMetadata },
-      });
-
-    if (linkError || !linkData?.user?.id) {
-      console.error("Resolve existing user error:", linkError);
+    if (alreadyRegistered) {
       return {
         ok: false as const,
         message:
@@ -389,14 +369,17 @@ export async function registerUser({
       };
     }
 
-    userId = linkData.user.id;
+    console.error("Create user error:", createError);
+    return { ok: false as const, message: createError.message };
+  }
 
-    if (createError) {
-      await admin.auth.admin.updateUserById(userId, {
-        password,
-        user_metadata: userMetadata,
-      });
-    }
+  const userId = createdUser.user?.id;
+  if (!userId) {
+    console.error("Create user succeeded but no user id was returned");
+    return {
+      ok: false as const,
+      message: "Could not create account. Please try again.",
+    };
   }
 
   const { error: profileError } = await admin.from("profiles").upsert({

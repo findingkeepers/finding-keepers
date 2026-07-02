@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { requireClientSession } from '@/lib/auth/require-client-session';
-import { redirectToLogin } from '@/lib/auth/redirect-to-login';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,20 +13,15 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ProfileCard } from '@/components/browse/ProfileCard';
 import { ETHNICITY_OPTIONS, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
-import { getOppositeProfileGender, normalizeToProfileGender } from '@/lib/gender';
-
-interface CV {
-  id: string;
-  user_id: string;
-  short_id: string;
-  photo_url: string | null;
-  data: Record<string, string>;
-}
+import {
+  getBrowsableProfiles,
+  type BrowsableProfileSummary,
+} from '@/app/actions/browse';
 
 export default function BrowsePage() {
   const router = useRouter();
-  const [cvs, setCvs] = useState<CV[]>([]);
-  const [filteredCVs, setFilteredCVs] = useState<CV[]>([]);
+  const [cvs, setCvs] = useState<BrowsableProfileSummary[]>([]);
+  const [filteredCVs, setFilteredCVs] = useState<BrowsableProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,50 +36,18 @@ export default function BrowsePage() {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        redirectToLogin();
+      const result = await getBrowsableProfiles();
+      if (!result.ok) {
+        if (result.code === 'profile_unverified') {
+          router.push('/dashboard');
+          return;
+        }
+        setLoading(false);
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('gender, verification_status')
-        .eq('id', user.id)
-        .single();
-
-      if (!profile || profile.verification_status !== 'verified') {
-        router.push('/dashboard');
-        return;
-      }
-
-      const oppositeGender = getOppositeProfileGender(profile.gender);
-
-      const [{ data: cvData, error }, { data: verifiedProfiles }] = await Promise.all([
-        supabase.from('cvs').select('*').order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id')
-          .eq('verification_status', 'verified'),
-      ]);
-
-      if (!error && cvData && oppositeGender) {
-        const verifiedUserIds = new Set(
-          (verifiedProfiles ?? []).map((p) => p.id)
-        );
-
-        const filtered = cvData.filter((cv: CV) => {
-          if (cv.user_id === user.id) return false;
-          if (!verifiedUserIds.has(cv.user_id)) return false;
-
-          const cvGender = normalizeToProfileGender(cv.data?.gender);
-          return cvGender === oppositeGender;
-        });
-
-        setCvs(filtered);
-        setFilteredCVs(filtered);
-      }
-
+      setCvs(result.profiles);
+      setFilteredCVs(result.profiles);
       setLoading(false);
     };
 
@@ -104,16 +65,16 @@ export default function BrowsePage() {
     }
 
     if (ethnicityFilter) {
-      result = result.filter(cv => cv.data?.ethnicBackground === ethnicityFilter);
+      result = result.filter((cv) => cv.ethnicBackground === ethnicityFilter);
     }
 
     if (visaFilter) {
-      result = result.filter(cv => cv.data?.residencyStatus === visaFilter);
+      result = result.filter((cv) => cv.residencyStatus === visaFilter);
     }
 
     if (employmentFilter) {
-      result = result.filter(cv =>
-        cv.data?.occupation?.toLowerCase().includes(employmentFilter.toLowerCase())
+      result = result.filter((cv) =>
+        cv.occupation?.toLowerCase().includes(employmentFilter.toLowerCase())
       );
     }
 
@@ -198,10 +159,10 @@ export default function BrowsePage() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredCVs.map((cv, index) => (
             <ProfileCard
-              key={cv.id}
+              key={cv.short_id}
               shortId={cv.short_id}
-              occupation={cv.data?.occupation}
-              education={cv.data?.education}
+              occupation={cv.occupation}
+              education={cv.education}
               photoUrl={cv.photo_url}
               index={index}
               onView={() => router.push(`/browse/${cv.short_id}`)}

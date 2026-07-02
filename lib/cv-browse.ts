@@ -35,3 +35,23 @@ export function redactCvDataForBrowse(
 
   return redacted;
 }
+
+export type BrowseListFields = {
+  occupation?: string;
+  education?: string;
+  ethnicBackground?: string;
+  residencyStatus?: string;
+};
+
+export function pickBrowseListData(
+  data: Record<string, string>
+): BrowseListFields {
+  const redacted = redactCvDataForBrowse(data);
+
+  return {
+    occupation: redacted.occupation,
+    education: redacted.education,
+    ethnicBackground: redacted.ethnicBackground,
+    residencyStatus: redacted.residencyStatus,
+  };
+}
