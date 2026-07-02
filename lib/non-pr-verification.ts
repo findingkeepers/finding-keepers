@@ -1,3 +1,5 @@
+import { isValidPhoneInput } from "@/lib/phone";
+
 export const YEARS_IN_HK_OPTIONS = [
   "1 year",
   "2 years",
@@ -70,6 +72,9 @@ export function validateNonPrVerification(
   }
   if (!form.referralPhone.trim()) {
     return "Please enter your referral's phone number";
+  }
+  if (!isValidPhoneInput(form.referralPhone)) {
+    return "Please enter a valid referral phone number (digits only)";
   }
   if (!form.referralEmail.trim()) {
     return "Please enter your referral's email address";

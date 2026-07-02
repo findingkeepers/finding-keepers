@@ -13,9 +13,8 @@ import { OtherSpecifyField } from '@/components/cv/OtherSpecifyField';
 import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { toast } from 'sonner';
-import { pdf } from '@react-pdf/renderer';
-import { CVPdf } from '@/components/CVPdf';
 import { allocateUniqueShortId } from '@/app/actions/cv';
+import { downloadCvPdf } from '@/lib/download-cv-pdf';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import {
@@ -56,6 +55,7 @@ export default function CVBuilder() {
 
   const [photo, setPhoto] = useState<File | null>(null);
   const [lockedGender, setLockedGender] = useState('');
+  const [lockedHkid, setLockedHkid] = useState('');
 
   // Load profile + existing CV (registration gender is source of truth)
   useEffect(() => {
@@ -74,6 +74,19 @@ export default function CVBuilder() {
 
       if (registrationGender) {
         setLockedGender(registrationGender);
+      }
+
+      const { data: verificationRequest } = await supabase
+        .from('verification_requests')
+        .select('hkid_number')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const verificationHkid = verificationRequest?.hkid_number?.trim() || '';
+      if (verificationHkid) {
+        setLockedHkid(verificationHkid);
       }
 
       const { data: existingCV } = await supabase
@@ -101,6 +114,7 @@ export default function CVBuilder() {
           ...loadedData,
           fullName: registrationName || loadedData.fullName || "",
           gender: registrationGender || loadedData.gender || "",
+          hkidNumber: verificationHkid || loadedData.hkidNumber || "",
           shortID: existingCV.short_id || "",
           photoUrl: existingCV.photo_url || "",
         });
@@ -121,6 +135,10 @@ export default function CVBuilder() {
                 registrationGender ||
                 savedDraft.formData.gender ||
                 baseForm.gender,
+              hkidNumber:
+                verificationHkid ||
+                savedDraft.formData.hkidNumber ||
+                baseForm.hkidNumber,
             })
           );
           setCurrentStep(
@@ -137,6 +155,7 @@ export default function CVBuilder() {
             ...normalizeLoadedCvData(draft.formData),
             fullName: registrationName || draft.formData.fullName || "",
             gender: registrationGender || draft.formData.gender || "",
+            hkidNumber: verificationHkid || draft.formData.hkidNumber || "",
           })
         );
         setCurrentStep(
@@ -149,6 +168,7 @@ export default function CVBuilder() {
           mergeCvFormData(createEmptyCvFormData(), {
             fullName: registrationName,
             gender: registrationGender || "",
+            hkidNumber: verificationHkid,
           })
         );
       }
@@ -297,9 +317,18 @@ export default function CVBuilder() {
         return;
       }
 
+      const enforcedHkid = lockedHkid || formData.hkidNumber.trim();
+      if (!enforcedHkid) {
+        toast.error(
+          "HKID not found from your verification. Please contact support."
+        );
+        return;
+      }
+
       const payload: CvFormData = {
         ...formData,
         gender: enforcedGender,
+        hkidNumber: enforcedHkid,
       };
 
       let shortID = payload.shortID;
@@ -336,22 +365,28 @@ export default function CVBuilder() {
         if (error) throw error;
       }
 
-      // Generate and download PDF
-      const blob = await pdf(<CVPdf data={{ ...payload, shortID }} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `CV_${shortID}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-
       clearCvDraft(user.id);
 
-      toast.success(isEditing ? "CV Updated Successfully!" : "CV Submitted Successfully!");
+      try {
+        await downloadCvPdf({
+          data: payload,
+          shortId: shortID,
+          photoUrl: payload.photoUrl || null,
+          filename: `Finding_Keepers_CV_${shortID}.pdf`,
+        });
+        toast.success(
+          isEditing
+            ? "CV updated and downloaded!"
+            : "CV submitted and downloaded!"
+        );
+      } catch (downloadError) {
+        console.error("CV PDF download error:", downloadError);
+        toast.warning(
+          "CV saved, but the PDF download failed. You can download it from My CV."
+        );
+      }
 
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1200);
+      router.replace("/dashboard");
 
     } catch (error: any) {
       toast.error(error.message || "Failed to save CV");
@@ -375,7 +410,15 @@ export default function CVBuilder() {
           Set during registration and used for matching. Contact support if this is incorrect.
         </p>
       </div>
-      <div className="space-y-2"><Label>HKID Number</Label><Input value={formData.hkidNumber} onChange={(e) => handleChange('hkidNumber', e.target.value)} /></div>
+      <div className="space-y-2">
+        <Label>HKID Number</Label>
+        <div className="flex h-11 items-center rounded-xl border border-input bg-muted/40 px-3 font-mono text-sm text-fk-plum">
+          {lockedHkid || formData.hkidNumber || '—'}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Taken from your verification submission. Contact support if this is incorrect.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label>Profile Photo (Optional)</Label>
         <div className="rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4 text-sm leading-relaxed text-fk-body">
@@ -774,7 +817,7 @@ export default function CVBuilder() {
         >
           {currentStep === totalSteps
             ? submitting
-              ? "Submitting..."
+              ? "Saving & downloading..."
               : isEditing
                 ? "Confirm & Update CV"
                 : "Confirm & Submit CV"

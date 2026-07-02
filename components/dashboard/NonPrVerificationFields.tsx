@@ -134,7 +134,11 @@ export function NonPrVerificationFields({
             id="referral-phone"
             type="tel"
             value={form.referralPhone}
-            onChange={(e) => onChange({ referralPhone: e.target.value })}
+            onChange={(e) =>
+              onChange({
+                referralPhone: e.target.value.replace(/[^\d+\s-]/g, ""),
+              })
+            }
             placeholder="+852 XXXX XXXX"
             className="h-11 rounded-xl"
             required

@@ -10,21 +10,29 @@ type CVPreviewProps = {
   data: Record<string, string>;
   shortId?: string;
   photoUrl?: string;
+  intro?: string | null;
 };
 
-export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
+const DEFAULT_INTRO =
+  "This preview shows what verified members will see when browsing your profile. Private details such as your HKID and full guarantor information are hidden unless you chose to display wali details on browse.";
+
+export function CVPreview({
+  data,
+  shortId,
+  photoUrl,
+  intro = DEFAULT_INTRO,
+}: CVPreviewProps) {
   const browseData = redactCvDataForBrowse(data, {
     showWali: shouldShowWaliOnBrowseProfile(data),
   });
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-fk-gold/30 bg-fk-cream/30 p-4 text-sm text-muted-foreground">
-        This preview shows what verified members will see when browsing your
-        profile. Private details such as your HKID and full guarantor
-        information are hidden unless you chose to display wali details on
-        browse.
-      </div>
+      {intro ? (
+        <div className="rounded-2xl border border-fk-gold/30 bg-fk-cream/30 p-4 text-sm text-muted-foreground">
+          {intro}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex justify-center lg:col-span-1">
