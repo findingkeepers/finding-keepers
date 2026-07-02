@@ -15,6 +15,7 @@ const PUBLIC_AUTH_PAGES = new Set([
   "/reset-password",
   "/verify-email",
   "/auth/confirm",
+  "/auth/recovery",
   "/fk-admin/login",
 ]);
 
@@ -85,7 +86,8 @@ export async function updateSession(request: NextRequest) {
     PUBLIC_AUTH_PAGES.has(pathname) &&
     pathname !== "/fk-admin/login" &&
     pathname !== "/reset-password" &&
-    pathname !== "/forgot-password"
+    pathname !== "/forgot-password" &&
+    pathname !== "/auth/recovery"
   ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";

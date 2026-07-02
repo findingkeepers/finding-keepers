@@ -484,7 +484,7 @@ export async function requestPasswordReset({ email }: { email: string }) {
 
   const admin = createAdminSupabaseClient();
   const appUrl = getAppUrl();
-  const redirectTo = `${appUrl}/reset-password`;
+  const redirectTo = `${appUrl}/auth/recovery`;
 
   if (!admin) {
     const supabase = await createServerSupabaseClient();

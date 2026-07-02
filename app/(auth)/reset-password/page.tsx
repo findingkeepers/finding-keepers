@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { markTabSessionActive } from '@/lib/supabase/browser';
+import { syncServerRecoverySession } from '@/lib/auth/recovery-session';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,11 +13,7 @@ import { AuthCard } from '@/components/layout/AuthCard';
 import { PasswordStrength } from '@/components/ui/password-strength';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { validatePasswordPolicy } from '@/lib/password';
-import {
-  exchangeRecoveryCode,
-  updateUserPassword,
-  verifyRecoveryToken,
-} from '@/app/actions/auth';
+import { updateUserPassword } from '@/app/actions/auth';
 import { toast } from 'sonner';
 
 type PageState = 'loading' | 'ready' | 'error';
@@ -24,24 +21,6 @@ type PageState = 'loading' | 'ready' | 'error';
 function parseHashParams() {
   if (!window.location.hash) return null;
   return new URLSearchParams(window.location.hash.slice(1));
-}
-
-async function syncRecoverySession() {
-  const sessionResponse = await fetch('/api/auth/session', {
-    credentials: 'include',
-    cache: 'no-store',
-  });
-
-  if (!sessionResponse.ok) return false;
-
-  const payload = await sessionResponse.json();
-  if (!payload.session) return false;
-
-  const { error } = await supabase.auth.setSession(payload.session);
-  if (error) return false;
-
-  markTabSessionActive();
-  return true;
 }
 
 function ResetPasswordContent() {
@@ -62,6 +41,28 @@ function ResetPasswordContent() {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     async function establishRecoverySession() {
+      if (searchParams.get('error') === 'recovery_failed') {
+        setErrorMessage(
+          'This password reset link has expired or was already used. Request a new one.'
+        );
+        setState('error');
+        router.replace('/reset-password', { scroll: false });
+        return;
+      }
+
+      const code = searchParams.get('code');
+      const token_hash = searchParams.get('token_hash');
+      const type = searchParams.get('type');
+
+      if (code || (token_hash && type === 'recovery')) {
+        const params = new URLSearchParams();
+        if (code) params.set('code', code);
+        if (token_hash) params.set('token_hash', token_hash);
+        if (type) params.set('type', type);
+        window.location.replace(`/auth/recovery?${params.toString()}`);
+        return;
+      }
+
       const hashParams = parseHashParams();
 
       if (hashParams?.get('error')) {
@@ -85,41 +86,11 @@ function ResetPasswordContent() {
         return;
       }
 
-      const code = searchParams.get('code');
-      let token_hash = searchParams.get('token_hash');
-      let type = searchParams.get('type');
-
-      if (hashParams) {
-        token_hash = token_hash || hashParams.get('token_hash');
-        type = type || hashParams.get('type');
-      }
-
-      if (code) {
-        const result = await exchangeRecoveryCode(code);
-        if (!result.ok) {
-          setErrorMessage(
-            result.message || 'Password reset link expired or invalid.'
-          );
-          setState('error');
-          router.replace('/reset-password', { scroll: false });
-          return;
-        }
-      } else if (token_hash && type === 'recovery') {
-        const result = await verifyRecoveryToken(token_hash);
-        if (!result.ok) {
-          setErrorMessage(
-            result.message || 'Password reset link expired or invalid.'
-          );
-          setState('error');
-          return;
-        }
-      }
-
       const accessToken = hashParams?.get('access_token');
       const refreshToken = hashParams?.get('refresh_token');
       if (
         accessToken &&
-        (type === 'recovery' || hashParams?.get('type') === 'recovery')
+        (hashParams?.get('type') === 'recovery' || type === 'recovery')
       ) {
         const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
@@ -127,27 +98,16 @@ function ResetPasswordContent() {
         });
 
         if (!error && data.session) {
-          markTabSessionActive();
-          setState('ready');
-          window.history.replaceState(null, '', window.location.pathname);
-          return;
+          const synced = await syncServerRecoverySession();
+          if (synced) {
+            setState('ready');
+            window.history.replaceState(null, '', window.location.pathname);
+            return;
+          }
         }
       }
 
-      if (await syncRecoverySession()) {
-        setState('ready');
-        if (code) {
-          router.replace('/reset-password', { scroll: false });
-        }
-        return;
-      }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        markTabSessionActive();
+      if (await syncServerRecoverySession()) {
         setState('ready');
         return;
       }
@@ -162,10 +122,16 @@ function ResetPasswordContent() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-        markTabSessionActive();
-        setState('ready');
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') &&
+        session
+      ) {
+        void syncServerRecoverySession().then((synced) => {
+          if (synced) {
+            setState('ready');
+          }
+        });
       }
     });
 
@@ -197,19 +163,13 @@ function ResetPasswordContent() {
         return;
       }
 
-      const hasSession = await syncRecoverySession();
-      if (!hasSession) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          const message =
-            'Your reset session has expired. Request a new password reset link.';
-          setFormError(message);
-          toast.error(message);
-          return;
-        }
+      const synced = await syncServerRecoverySession();
+      if (!synced) {
+        const message =
+          'Your reset session has expired. Request a new password reset link.';
+        setFormError(message);
+        toast.error(message);
+        return;
       }
 
       const result = await updateUserPassword(password);
@@ -218,6 +178,8 @@ function ResetPasswordContent() {
         toast.error(result.message);
         return;
       }
+
+      markTabSessionActive();
 
       await fetch('/api/auth/logout', {
         method: 'POST',

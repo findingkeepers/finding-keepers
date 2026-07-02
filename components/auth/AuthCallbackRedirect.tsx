@@ -31,7 +31,10 @@ function getAuthRedirectTarget(search: string, hash: string) {
     searchParams.get("type") === "recovery" || hash.includes("type=recovery");
 
   if (isRecovery) {
-    return `/reset-password${search}${hash}`;
+    if (hash.includes("access_token")) {
+      return `/reset-password${search}${hash}`;
+    }
+    return `/auth/recovery${search}`;
   }
 
   const params = new URLSearchParams(search);
@@ -47,7 +50,13 @@ export function AuthCallbackRedirect() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname === "/auth/confirm" || pathname === "/reset-password") return;
+    if (
+      pathname === "/auth/confirm" ||
+      pathname === "/auth/recovery" ||
+      pathname === "/reset-password"
+    ) {
+      return;
+    }
 
     const search = window.location.search;
     const hash = window.location.hash;

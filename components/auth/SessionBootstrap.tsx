@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/reset-password",
   "/verify-email",
   "/auth/confirm",
+  "/auth/recovery",
   "/fk-admin/login",
   "/",
 ];
