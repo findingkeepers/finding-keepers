@@ -116,7 +116,11 @@ export function getStepWarnings(step: number, data: FormData): string[] {
       if (!data.whatSeeking?.trim() || data.whatSeeking.trim().length < 100) {
         warnings.push("What you are seeking must be at least 100 characters");
       }
-      requireSelection(warnings, data.partnerAgeRange, "Partner's age range");
+      requireSelection(
+        warnings,
+        data.partnerAgeRange,
+        "Partner's age range (select at least one)"
+      );
       requireSelection(
         warnings,
         data.partnerEducation,

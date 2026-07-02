@@ -529,16 +529,14 @@ export default function CVBuilder() {
       <div className="space-y-2"><Label>What are you seeking in a partner? (min 100 characters)</Label><Textarea value={formData.whatSeeking} onChange={(e) => handleChange('whatSeeking', e.target.value)} rows={3} /></div>
 
       <div className="space-y-2">
-        <Label>Partner&apos;s Age Range</Label>
+        <Label>Partner&apos;s Age Range (Select all that apply)</Label>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {PARTNER_AGE_RANGE_OPTIONS.map((opt) => (
             <label key={opt} className="flex items-center gap-2">
               <input
-                type="radio"
-                name="partnerAgeRange"
-                value={opt}
-                checked={formData.partnerAgeRange === opt}
-                onChange={(e) => handleChange('partnerAgeRange', e.target.value)}
+                type="checkbox"
+                checked={formData.partnerAgeRange?.split(', ').includes(opt) || false}
+                onChange={() => handleMultiSelect('partnerAgeRange', opt)}
               />
               {opt}
             </label>
