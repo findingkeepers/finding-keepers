@@ -27,6 +27,7 @@ import {
   RESIDENCY_OPTIONS,
   WALI_INVOLVEMENT_OPTIONS,
   WALI_NO_INVOLVEMENT,
+  waliInvolvementRequiresDetails,
 } from '@/lib/cv-constants';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import {
@@ -625,7 +626,19 @@ export default function CVBuilder() {
                 setFormData((prev) => ({
                   ...prev,
                   waliInvolvement: value,
-                  ...(value !== WALI_NO_INVOLVEMENT ? { waliReason: "" } : {}),
+                  ...(value === WALI_NO_INVOLVEMENT
+                    ? {
+                        waliRelationship: "",
+                        waliRelationshipOther: "",
+                        waliName: "",
+                        waliHKID: "",
+                        waliPhone: "",
+                        waliEmail: "",
+                        waliAddress: "",
+                      }
+                    : waliInvolvementRequiresDetails(value)
+                      ? { waliReason: "" }
+                      : {}),
                 }));
                 if (errors.length > 0) setErrors([]);
               }}
@@ -647,23 +660,27 @@ export default function CVBuilder() {
           />
         </div>
       )}
-      <div className="space-y-2"><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
-        <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Father</label>
-        <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Mother</label>
-        <label><input type="radio" name="waliRelationship" value="Other" checked={formData.waliRelationship === "Other"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Other</label>
-      </div>
-        <OtherSpecifyField
-          show={selectionIsOther(formData.waliRelationship)}
-          label="Please specify wali's relationship to you"
-          value={formData.waliRelationshipOther}
-          onChange={(value) => handleChange('waliRelationshipOther', value)}
-        />
-      </div>
-      <div className="space-y-2"><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
-      <div className="space-y-2"><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
+      {waliInvolvementRequiresDetails(formData.waliInvolvement) && (
+        <>
+          <div className="space-y-2"><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
+            <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Father</label>
+            <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Mother</label>
+            <label><input type="radio" name="waliRelationship" value="Other" checked={formData.waliRelationship === "Other"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Other</label>
+          </div>
+            <OtherSpecifyField
+              show={selectionIsOther(formData.waliRelationship)}
+              label="Please specify wali's relationship to you"
+              value={formData.waliRelationshipOther}
+              onChange={(value) => handleChange('waliRelationshipOther', value)}
+            />
+          </div>
+          <div className="space-y-2"><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
+          <div className="space-y-2"><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
+          <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
+          <div className="space-y-2"><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
+          <div className="space-y-2"><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
+        </>
+      )}
 
       <div className="space-y-2 rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4">
         <Label>Display guarantor/wali details on your public browse profile?</Label>

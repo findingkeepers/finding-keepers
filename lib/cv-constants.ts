@@ -44,3 +44,12 @@ export const WALI_INVOLVEMENT_OPTIONS = [
 ] as const;
 
 export const WALI_NO_INVOLVEMENT = WALI_INVOLVEMENT_OPTIONS[2];
+
+export function waliInvolvementRequiresDetails(
+  involvement: string | undefined
+): boolean {
+  return (
+    involvement === WALI_INVOLVEMENT_OPTIONS[0] ||
+    involvement === WALI_INVOLVEMENT_OPTIONS[1]
+  );
+}

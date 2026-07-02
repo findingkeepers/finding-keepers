@@ -2,7 +2,10 @@ import {
   multiSelectIncludesOther,
   selectionIsOther,
 } from "@/lib/cv-other";
-import { WALI_NO_INVOLVEMENT } from "@/lib/cv-constants";
+import {
+  WALI_NO_INVOLVEMENT,
+  waliInvolvementRequiresDetails,
+} from "@/lib/cv-constants";
 
 type FormData = Record<string, string>;
 
@@ -222,18 +225,24 @@ export function getStepWarnings(step: number, data: FormData): string[] {
           "Please explain why you do not wish to involve your parents/wali"
         );
       }
-      requireSelection(warnings, data.waliRelationship, "Wali's relationship to you");
-      requireOtherSpecify(
-        warnings,
-        data.waliRelationship,
-        data.waliRelationshipOther,
-        "Wali relationship details"
-      );
-      requireText(warnings, data.waliName, "Wali's name");
-      requireText(warnings, data.waliHKID, "Wali's HKID / Passport number");
-      requireText(warnings, data.waliPhone, "Wali's phone number");
-      requireText(warnings, data.waliEmail, "Wali's email");
-      requireText(warnings, data.waliAddress, "Wali's home address");
+      if (waliInvolvementRequiresDetails(data.waliInvolvement)) {
+        requireSelection(
+          warnings,
+          data.waliRelationship,
+          "Wali's relationship to you"
+        );
+        requireOtherSpecify(
+          warnings,
+          data.waliRelationship,
+          data.waliRelationshipOther,
+          "Wali relationship details"
+        );
+        requireText(warnings, data.waliName, "Wali's name");
+        requireText(warnings, data.waliHKID, "Wali's HKID / Passport number");
+        requireText(warnings, data.waliPhone, "Wali's phone number");
+        requireText(warnings, data.waliEmail, "Wali's email");
+        requireText(warnings, data.waliAddress, "Wali's home address");
+      }
       requireSelection(
         warnings,
         data.showWaliOnProfile,

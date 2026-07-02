@@ -58,7 +58,23 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         </div>
       </div>
 
-      <CVSectionCard title="Personality & Individualism" index={0}>
+      <CVSectionCard title="Detailed Information" index={0}>
+        <CVField
+          label="Self Description"
+          value={browseData.selfDescription}
+        />
+        <CVField
+          label="Religious History"
+          value={browseData.religiousHistory}
+        />
+        <CVField label="Do you pray?" value={browseData.prayLevel} />
+        <CVField
+          label="Sect / Madhab"
+          value={formatSelectionWithOther(browseData.sect, browseData.sectOther)}
+        />
+      </CVSectionCard>
+
+      <CVSectionCard title="Personality & Individualism" index={1}>
         <CVField label="Sense of Humor" value={browseData.senseOfHumor} />
         <CVField label="What motivates you" value={browseData.motivation} />
         <CVField
@@ -67,7 +83,7 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         />
       </CVSectionCard>
 
-      <CVSectionCard title="Partner Preferences" index={1}>
+      <CVSectionCard title="Partner Preferences" index={2}>
         <CVField
           label="Qualities in a partner"
           value={browseData.partnerQualities}
@@ -87,7 +103,7 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         />
       </CVSectionCard>
 
-      <CVSectionCard title="Family + Lifestyle & Goals" index={2}>
+      <CVSectionCard title="Family + Lifestyle & Goals" index={3}>
         <CVField label="Role of family" value={browseData.familyRole} />
         <CVField label="Hobbies" value={browseData.hobbies} />
         <CVField label="Long-term goals" value={browseData.longTermGoals} />
@@ -97,7 +113,7 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         />
       </CVSectionCard>
 
-      <CVSectionCard title="Work / Finances" index={3}>
+      <CVSectionCard title="Work / Finances" index={4}>
         <CVField
           label="Definition of wealth"
           value={browseData.wealthDefinition}
@@ -114,7 +130,7 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         />
       </CVSectionCard>
 
-      <CVSectionCard title="Values, Religion & Faith" index={4}>
+      <CVSectionCard title="Values, Religion & Faith" index={5}>
         <CVField label="Important values" value={browseData.importantValues} />
         <CVField
           label="Faith in daily life"
@@ -126,7 +142,7 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         />
       </CVSectionCard>
 
-      <CVSectionCard title="Communication & Conflict Resolution" index={5}>
+      <CVSectionCard title="Communication & Conflict Resolution" index={6}>
         <CVField
           label="Approach to conflict"
           value={browseData.conflictResolution}
@@ -134,22 +150,6 @@ export function CVPreview({ data, shortId, photoUrl }: CVPreviewProps) {
         <CVField
           label="Handling disagreements"
           value={browseData.handleDisagreements}
-        />
-      </CVSectionCard>
-
-      <CVSectionCard title="Detailed Information" index={6}>
-        <CVField
-          label="Self Description"
-          value={browseData.selfDescription}
-        />
-        <CVField
-          label="Religious History"
-          value={browseData.religiousHistory}
-        />
-        <CVField label="Do you pray?" value={browseData.prayLevel} />
-        <CVField
-          label="Sect / Madhab"
-          value={formatSelectionWithOther(browseData.sect, browseData.sectOther)}
         />
       </CVSectionCard>
 
