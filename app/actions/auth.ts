@@ -11,12 +11,6 @@ import {
   REMEMBER_ME_MAX_AGE_SECONDS,
 } from "@/lib/auth/constants";
 import { isProduction } from "@/lib/auth/cookie-options";
-import {
-  checkRateLimit,
-  clearRateLimit,
-  recordRateLimitAttempt,
-  recordRateLimitFailure,
-} from "@/lib/rate-limit";
 import { validatePasswordPolicy } from "@/lib/password";
 import { escapeHtml } from "@/lib/html-escape";
 import type { EmailOtpType } from "@supabase/supabase-js";
@@ -31,11 +25,6 @@ export async function loginUser({
   rememberMe: boolean;
 }) {
   const normalizedEmail = email.trim().toLowerCase();
-
-  const rateLimit = await checkRateLimit("login", normalizedEmail);
-  if (!rateLimit.ok) {
-    return { ok: false as const, message: rateLimit.message };
-  }
 
   const cookieStore = await cookies();
   if (rememberMe) {
@@ -57,8 +46,6 @@ export async function loginUser({
   });
 
   if (error) {
-    await recordRateLimitFailure("login", normalizedEmail);
-
     const needsConfirmation =
       error.message.toLowerCase().includes("email not confirmed") ||
       error.message.toLowerCase().includes("not confirmed");
@@ -72,7 +59,6 @@ export async function loginUser({
     };
   }
 
-  await clearRateLimit("login", normalizedEmail);
   return { ok: true as const, rememberMe };
 }
 
@@ -176,13 +162,6 @@ export async function checkPhoneAvailable(phone: string) {
   if (!normalized) {
     return { available: false, message: "Please enter a valid phone number" };
   }
-
-  const rateLimit = await checkRateLimit("phone_check", normalized);
-  if (!rateLimit.ok) {
-    return { available: false, message: rateLimit.message };
-  }
-
-  await recordRateLimitAttempt("phone_check", normalized);
 
   const admin = createAdminSupabaseClient();
   const supabase = admin ?? (await createServerSupabaseClient());
@@ -338,11 +317,6 @@ export async function registerUser({
 }) {
   const normalizedEmail = email.trim().toLowerCase();
 
-  const rateLimit = await checkRateLimit("signup", normalizedEmail);
-  if (!rateLimit.ok) {
-    return { ok: false as const, message: rateLimit.message };
-  }
-
   const passwordCheck = await validatePasswordPolicy(password);
   if (!passwordCheck.ok) {
     return { ok: false as const, message: passwordCheck.message };
@@ -391,7 +365,6 @@ export async function registerUser({
 
     if (!alreadyRegistered) {
       console.error("Create user error:", createError);
-      await recordRateLimitFailure("signup", normalizedEmail);
       return { ok: false as const, message: createError.message };
     }
   }
@@ -447,11 +420,9 @@ export async function registerUser({
   });
 
   if (!emailResult.ok) {
-    await recordRateLimitFailure("signup", normalizedEmail);
     return emailResult;
   }
 
-  await clearRateLimit("signup", normalizedEmail);
   return { ok: true as const, message: "" };
 }
 
@@ -506,31 +477,32 @@ function buildPasswordResetEmailHtml({
 }
 
 export async function requestPasswordReset({ email }: { email: string }) {
-  const normalizedEmail = email.trim().toLowerCase();
-
-  const rateLimit = await checkRateLimit("password_reset", normalizedEmail);
-  if (!rateLimit.ok) {
-    return { ok: false as const, message: rateLimit.message };
-  }
-
-  await recordRateLimitAttempt("password_reset", normalizedEmail);
-
   const trimmedEmail = email.trim();
   if (!trimmedEmail) {
     return { ok: false as const, message: "Please enter your email address." };
   }
 
   const admin = createAdminSupabaseClient();
-  if (!admin) {
-    return {
-      ok: false as const,
-      message:
-        "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY to your environment variables.",
-    };
-  }
-
   const appUrl = getAppUrl();
   const redirectTo = `${appUrl}/reset-password`;
+
+  if (!admin) {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      trimmedEmail.toLowerCase(),
+      { redirectTo }
+    );
+
+    if (error) {
+      return { ok: false as const, message: error.message };
+    }
+
+    return {
+      ok: true as const,
+      message:
+        "If an account exists for that email, we sent a password reset link.",
+    };
+  }
 
   const { data: linkData, error: linkError } =
     await admin.auth.admin.generateLink({
@@ -572,13 +544,14 @@ export async function requestPasswordReset({ email }: { email: string }) {
     console.error("Password reset email error:", emailResult.message);
     return {
       ok: false as const,
-      message: "Could not send the password reset email. Please try again shortly.",
+      message:
+        "Could not send the password reset email. Please try again shortly.",
     };
   }
 
   return {
     ok: true as const,
-    message: "If an account exists for that email, we sent a password reset link.",
+    message: "Password reset link sent to your email.",
   };
 }
 

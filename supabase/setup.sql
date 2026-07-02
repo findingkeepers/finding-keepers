@@ -53,14 +53,8 @@ ADD COLUMN IF NOT EXISTS referral_phone text,
 ADD COLUMN IF NOT EXISTS referral_email text,
 ADD COLUMN IF NOT EXISTS referral_hkid text;
 
--- 7) Auth rate limiting (service role only)
-CREATE TABLE IF NOT EXISTS public.auth_rate_limits (
-  bucket_key text PRIMARY KEY,
-  attempt_count integer NOT NULL DEFAULT 1,
-  window_start timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE public.auth_rate_limits ENABLE ROW LEVEL SECURITY;
+-- 7) Remove legacy custom auth rate-limit table (Supabase Auth handles rate limits)
+DROP TABLE IF EXISTS public.auth_rate_limits;
 
 -- 8) Row Level Security policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
