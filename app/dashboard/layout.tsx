@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { requireClientSession } from "@/lib/auth/require-client-session";
 import { redirectToLogin } from "@/lib/auth/redirect-to-login";
+import { DashboardContentSkeleton } from "@/components/dashboard/DashboardContentSkeleton";
 import { DashboardLayoutProvider } from "@/components/dashboard/DashboardLayoutProvider";
 import {
   isUserVerified,
@@ -17,15 +18,17 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       const authed = await requireClientSession();
-      if (!authed) {
+      if (!authed || cancelled) {
         return;
       }
 
@@ -44,40 +47,37 @@ export default function DashboardLayout({
         .eq("id", user.id)
         .maybeSingle();
 
+      if (cancelled) {
+        return;
+      }
+
       setIsVerified(isUserVerified(profile?.verification_status));
-      setLoading(false);
+      setAuthLoading(false);
     };
 
-    checkAuth();
-  }, [router, pathname]);
+    void checkAuth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   useEffect(() => {
-    if (loading) return;
+    if (authLoading) return;
 
     if (!isVerified && isVerifiedOnlyRoute(pathname)) {
       toast.error("Please complete verification to access this page.");
       router.replace("/dashboard");
     }
-  }, [loading, isVerified, pathname, router]);
+  }, [authLoading, isVerified, pathname, router]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-fk-bg-top">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-8 animate-spin rounded-full border-2 border-fk-gold border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isVerified && isVerifiedOnlyRoute(pathname)) {
+  if (!authLoading && !isVerified && isVerifiedOnlyRoute(pathname)) {
     return null;
   }
 
   return (
     <DashboardLayoutProvider isVerified={isVerified}>
-      {children}
+      {authLoading ? <DashboardContentSkeleton /> : children}
     </DashboardLayoutProvider>
   );
 }

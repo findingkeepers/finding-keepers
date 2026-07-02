@@ -8,7 +8,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
+import { BrowseProfileDetailSkeleton } from '@/components/browse/BrowseProfileDetailSkeleton';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { toast } from 'sonner';
@@ -185,8 +185,22 @@ export default function ViewProfilePage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <LoadingSpinner message="Loading profile..." />
+      <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">
+        <PageHeader
+          title="Profile Details"
+          subtitle="Loading profile..."
+          eyebrow="Member Profile"
+          actions={
+            <Button
+              variant="premium-outline"
+              className="rounded-xl"
+              onClick={() => router.push('/browse')}
+            >
+              ← Back to Browse
+            </Button>
+          }
+        />
+        <BrowseProfileDetailSkeleton />
       </div>
     );
   }

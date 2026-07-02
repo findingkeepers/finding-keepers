@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterBar } from '@/components/layout/FilterBar';
-import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { BrowseGridSkeleton } from '@/components/browse/ProfileCardSkeleton';
 import { ProfileCard } from '@/components/browse/ProfileCard';
+
 import { ETHNICITY_OPTIONS, RESIDENCY_OPTIONS } from '@/lib/cv-constants';
 import {
   getBrowsableProfiles,
@@ -81,14 +82,6 @@ export default function BrowsePage() {
     setFilteredCVs(result);
   }, [searchTerm, ethnicityFilter, visaFilter, employmentFilter, cvs]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <LoadingSpinner message="Loading profiles..." />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-7xl px-6 py-8 md:px-10">
       <PageHeader
@@ -150,7 +143,9 @@ export default function BrowsePage() {
         </div>
       </FilterBar>
 
-      {filteredCVs.length === 0 ? (
+      {loading ? (
+        <BrowseGridSkeleton />
+      ) : filteredCVs.length === 0 ? (
         <EmptyState
           title="No Profiles Found"
           description="No profiles match your current filters. Try adjusting your search criteria."
