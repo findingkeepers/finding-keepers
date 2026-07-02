@@ -34,6 +34,9 @@ function LoginForm() {
     if (searchParams.get('verified') === '1') {
       toast.success("Email confirmed! You can log in now.");
     }
+    if (searchParams.get('reset') === '1') {
+      toast.success("Password updated successfully! Log in with your new password.");
+    }
     if (searchParams.get('check_email') === '1') {
       toast.message("Check your inbox", {
         description: "Click the confirmation link in your email, then log in here.",

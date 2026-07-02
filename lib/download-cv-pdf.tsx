@@ -2,91 +2,9 @@
 
 import { pdf } from "@react-pdf/renderer";
 import { CVPdf } from "@/components/CVPdf";
-import { supabase } from "@/lib/supabase";
 
-const PDF_TIMEOUT_MS = 30_000;
-const PDF_WITH_REMOTE_PHOTO_TIMEOUT_MS = 12_000;
-const PHOTO_FETCH_TIMEOUT_MS = 8_000;
-
-function getStoragePathFromPublicUrl(url: string): string | null {
-  const marker = "/profile-photos/";
-  const index = url.indexOf(marker);
-  if (index === -1) return null;
-  return url.slice(index + marker.length).split("?")[0] || null;
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message: string
-): Promise<T> {
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  return Promise.race([promise, timeoutPromise]);
-}
-
-async function fetchPhotoAsDataUrl(photoUrl: string): Promise<string | null> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), PHOTO_FETCH_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(photoUrl, {
-      signal: controller.signal,
-      mode: "cors",
-    });
-
-    if (!response.ok) return null;
-
-    const blob = await response.blob();
-    if (!blob.type.startsWith("image/")) return null;
-
-    return await blobToDataUrl(blob);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-async function downloadPhotoAsDataUrl(photoUrl: string): Promise<string | null> {
-  const storagePath = getStoragePathFromPublicUrl(photoUrl);
-  if (!storagePath) return null;
-
-  try {
-    const { data, error } = await supabase.storage
-      .from("profile-photos")
-      .download(storagePath);
-
-    if (error || !data) return null;
-    return await blobToDataUrl(data);
-  } catch {
-    return null;
-  }
-}
-
-async function resolvePhotoForPdf(photoUrl: string): Promise<string> {
-  if (!photoUrl) return "";
-  if (photoUrl.startsWith("data:")) return photoUrl;
-
-  const embedded = (await fetchPhotoAsDataUrl(photoUrl)) ||
-    (await downloadPhotoAsDataUrl(photoUrl));
-
-  if (embedded) return embedded;
-
-  // Use the public URL directly (original behaviour) when embedding fails.
-  return photoUrl;
-}
+const PDF_TIMEOUT_MS = 15_000;
+const PHOTO_API_TIMEOUT_MS = 4_000;
 
 function buildPdfData(
   data: Record<string, string>,
@@ -100,12 +18,42 @@ function buildPdfData(
   };
 }
 
-async function renderPdfBlob(
-  pdfData: ReturnType<typeof buildPdfData>,
-  timeoutMs = PDF_TIMEOUT_MS
-) {
+async function fetchPhotoDataUrl(photoUrl: string): Promise<string | null> {
+  if (!photoUrl || photoUrl.startsWith("data:")) {
+    return photoUrl || null;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PHOTO_API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `/api/cv/photo?url=${encodeURIComponent(photoUrl)}`,
+      {
+        credentials: "include",
+        signal: controller.signal,
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as { dataUrl?: string };
+    return payload.dataUrl ?? null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function renderPdfBlob(pdfData: ReturnType<typeof buildPdfData>) {
   const blobPromise = pdf(<CVPdf data={pdfData} />).toBlob();
-  return withTimeout(blobPromise, timeoutMs, "PDF generation timed out");
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("PDF generation timed out")), PDF_TIMEOUT_MS);
+  });
+
+  return Promise.race([blobPromise, timeoutPromise]);
 }
 
 function triggerDownload(blob: Blob, filename: string) {
@@ -132,26 +80,21 @@ export async function downloadCvPdf({
 }) {
   const safeData = data ?? {};
   const mergedPhoto = photoUrl || safeData.photoUrl || "";
-  const resolvedPhoto = await resolvePhotoForPdf(mergedPhoto);
+  const embeddedPhoto = mergedPhoto
+    ? await fetchPhotoDataUrl(mergedPhoto)
+    : null;
 
-  const pdfData = buildPdfData(safeData, shortId, resolvedPhoto);
-  const usesRemotePhoto =
-    resolvedPhoto.startsWith("http://") || resolvedPhoto.startsWith("https://");
+  const pdfData = buildPdfData(safeData, shortId, embeddedPhoto || "");
 
   try {
-    const blob = await renderPdfBlob(
-      pdfData,
-      usesRemotePhoto ? PDF_WITH_REMOTE_PHOTO_TIMEOUT_MS : PDF_TIMEOUT_MS
-    );
+    const blob = await renderPdfBlob(pdfData);
     triggerDownload(blob, filename);
-    return;
+    return { hasPhoto: Boolean(embeddedPhoto) };
   } catch (firstError) {
-    if (!resolvedPhoto) throw firstError;
+    if (!embeddedPhoto) throw firstError;
   }
 
-  const blob = await renderPdfBlob(
-    buildPdfData(safeData, shortId, ""),
-    PDF_TIMEOUT_MS
-  );
+  const blob = await renderPdfBlob(buildPdfData(safeData, shortId, ""));
   triggerDownload(blob, filename);
+  return { hasPhoto: false };
 }

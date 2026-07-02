@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { markTabSessionActive } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,24 @@ function parseHashParams() {
   return new URLSearchParams(window.location.hash.slice(1));
 }
 
+async function syncRecoverySession() {
+  const sessionResponse = await fetch('/api/auth/session', {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+
+  if (!sessionResponse.ok) return false;
+
+  const payload = await sessionResponse.json();
+  if (!payload.session) return false;
+
+  const { error } = await supabase.auth.setSession(payload.session);
+  if (error) return false;
+
+  markTabSessionActive();
+  return true;
+}
+
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,6 +51,8 @@ function ResetPasswordContent() {
   const [state, setState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -96,34 +117,29 @@ function ResetPasswordContent() {
 
       const accessToken = hashParams?.get('access_token');
       const refreshToken = hashParams?.get('refresh_token');
-      if (accessToken && (type === 'recovery' || hashParams?.get('type') === 'recovery')) {
+      if (
+        accessToken &&
+        (type === 'recovery' || hashParams?.get('type') === 'recovery')
+      ) {
         const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken || '',
         });
 
         if (!error && data.session) {
+          markTabSessionActive();
           setState('ready');
           window.history.replaceState(null, '', window.location.pathname);
           return;
         }
       }
 
-      const sessionResponse = await fetch('/api/auth/session', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-
-      if (sessionResponse.ok) {
-        const payload = await sessionResponse.json();
-        if (payload.session) {
-          await supabase.auth.setSession(payload.session);
-          setState('ready');
-          if (code) {
-            router.replace('/reset-password', { scroll: false });
-          }
-          return;
+      if (await syncRecoverySession()) {
+        setState('ready');
+        if (code) {
+          router.replace('/reset-password', { scroll: false });
         }
+        return;
       }
 
       const {
@@ -131,6 +147,7 @@ function ResetPasswordContent() {
       } = await supabase.auth.getSession();
 
       if (session) {
+        markTabSessionActive();
         setState('ready');
         return;
       }
@@ -147,6 +164,7 @@ function ResetPasswordContent() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        markTabSessionActive();
         setState('ready');
       }
     });
@@ -161,49 +179,62 @@ function ResetPasswordContent() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    const passwordCheck = await validatePasswordPolicy(password);
-    if (!passwordCheck.ok) {
-      toast.error(passwordCheck.message);
-      return;
-    }
-
-    const formData = new FormData(e.currentTarget);
-    const confirm = formData.get('confirmPassword') as string;
-
-    if (password !== confirm) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
+    setFormError('');
     setSubmitting(true);
 
-    const sessionResponse = await fetch('/api/auth/session', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
+    try {
+      if (password !== confirmPassword) {
+        const message = 'Passwords do not match';
+        setFormError(message);
+        toast.error(message);
+        return;
+      }
 
-    if (sessionResponse.ok) {
+      const passwordCheck = await validatePasswordPolicy(password);
+      if (!passwordCheck.ok) {
+        setFormError(passwordCheck.message);
+        toast.error(passwordCheck.message);
+        return;
+      }
+
+      const hasSession = await syncRecoverySession();
+      if (!hasSession) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          const message =
+            'Your reset session has expired. Request a new password reset link.';
+          setFormError(message);
+          toast.error(message);
+          return;
+        }
+      }
+
       const result = await updateUserPassword(password);
       if (!result.ok) {
+        setFormError(result.message);
         toast.error(result.message);
-        setSubmitting(false);
         return;
       }
-    } else {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        toast.error(error.message);
-        setSubmitting(false);
-        return;
-      }
-    }
 
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    await supabase.auth.signOut();
-    toast.success('Password updated successfully!');
-    router.push('/login');
-    setSubmitting(false);
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      await supabase.auth.signOut();
+
+      toast.success('Password updated successfully! You can log in now.');
+      window.location.replace('/login?reset=1');
+    } catch (error) {
+      console.error('Password reset error:', error);
+      const message = 'Something went wrong. Please try again.';
+      setFormError(message);
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (state === 'loading') {
@@ -236,6 +267,12 @@ function ResetPasswordContent() {
       subtitle="Choose a strong password for your account"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        {formError ? (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {formError}
+          </p>
+        ) : null}
+
         <div className="space-y-2">
           <Label htmlFor="password">New Password</Label>
           <Input
@@ -246,6 +283,7 @@ function ResetPasswordContent() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={submitting}
           />
           <PasswordStrength password={password} />
         </div>
@@ -256,7 +294,10 @@ function ResetPasswordContent() {
             name="confirmPassword"
             type="password"
             className="h-11 rounded-xl"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             required
+            disabled={submitting}
           />
         </div>
         <Button

@@ -76,13 +76,17 @@ export default function AdminCVsPage() {
   const handleDownloadPDF = async (cv: CV) => {
     setDownloadingId(cv.id);
     try {
-      await downloadCvPdf({
+      const result = await downloadCvPdf({
         data: cv.data,
         shortId: cv.short_id,
         photoUrl: cv.photo_url,
         filename: `CV_${cv.short_id}.pdf`,
       });
-      toast.success('CV downloaded successfully');
+      toast.success(
+        result.hasPhoto
+          ? 'CV downloaded successfully'
+          : 'CV downloaded (photo could not be embedded)'
+      );
     } catch (error) {
       console.error('PDF download error:', error);
       toast.error('Failed to download PDF');
