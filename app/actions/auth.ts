@@ -484,13 +484,12 @@ export async function requestPasswordReset({ email }: { email: string }) {
 
   const admin = createAdminSupabaseClient();
   const appUrl = getAppUrl();
-  const redirectTo = `${appUrl}/auth/recovery`;
 
   if (!admin) {
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase.auth.resetPasswordForEmail(
       trimmedEmail.toLowerCase(),
-      { redirectTo }
+      { redirectTo: `${appUrl}/reset-password` }
     );
 
     if (error) {
@@ -508,10 +507,11 @@ export async function requestPasswordReset({ email }: { email: string }) {
     await admin.auth.admin.generateLink({
       type: "recovery",
       email: trimmedEmail,
-      options: { redirectTo },
     });
 
-  if (linkError || !linkData?.properties?.action_link) {
+  const hashedToken = linkData?.properties?.hashed_token;
+
+  if (linkError || !hashedToken) {
     console.error("Password reset link error:", linkError);
     return {
       ok: true as const,
@@ -519,6 +519,8 @@ export async function requestPasswordReset({ email }: { email: string }) {
         "If an account exists for that email, we sent a password reset link.",
     };
   }
+
+  const resetUrl = `${appUrl}/auth/recovery?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`;
 
   const fullName =
     (linkData.user?.user_metadata?.full_name as string | undefined) || "";
@@ -528,7 +530,7 @@ export async function requestPasswordReset({ email }: { email: string }) {
     subject: "Reset your Finding Keepers password",
     html: buildPasswordResetEmailHtml({
       fullName,
-      resetUrl: linkData.properties.action_link,
+      resetUrl,
     }),
   });
 

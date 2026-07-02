@@ -4,10 +4,9 @@ import {
   applySecureAuthCookieOptions,
   getRememberMeFromCookies,
 } from "@/lib/auth/cookie-options";
-import { getAppUrl } from "@/lib/app-url";
 
-function buildRedirect(path: string) {
-  return NextResponse.redirect(`${getAppUrl()}${path}`);
+function buildRedirect(request: NextRequest, path: string) {
+  return NextResponse.redirect(new URL(path, request.url));
 }
 
 export async function GET(request: NextRequest) {
@@ -16,7 +15,7 @@ export async function GET(request: NextRequest) {
   const token_hash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type");
 
-  let response = buildRedirect("/reset-password");
+  let response = buildRedirect(request, "/reset-password");
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,17 +43,6 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (error) {
-      console.error("Recovery code exchange error:", error);
-      return buildRedirect("/reset-password?error=recovery_failed");
-    }
-
-    return response;
-  }
-
   if (token_hash && type === "recovery") {
     const { error } = await supabase.auth.verifyOtp({
       token_hash,
@@ -63,11 +51,22 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Recovery token verify error:", error);
-      return buildRedirect("/reset-password?error=recovery_failed");
+      return buildRedirect(request, "/reset-password?error=recovery_failed");
     }
 
     return response;
   }
 
-  return buildRedirect("/reset-password?error=recovery_failed");
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error) {
+      console.error("Recovery code exchange error:", error);
+      return buildRedirect(request, "/reset-password?error=recovery_failed");
+    }
+
+    return response;
+  }
+
+  return buildRedirect(request, "/reset-password?error=recovery_failed");
 }
