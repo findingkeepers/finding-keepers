@@ -25,6 +25,8 @@ import {
   PARTNER_AGE_RANGE_OPTIONS,
   PARTNER_EDUCATION_OPTIONS,
   RESIDENCY_OPTIONS,
+  WALI_INVOLVEMENT_OPTIONS,
+  WALI_NO_INVOLVEMENT,
 } from '@/lib/cv-constants';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import {
@@ -597,7 +599,7 @@ export default function CVBuilder() {
   const renderStep10 = () => (
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">
-        Step 10: Preview Your CV
+        Step 10: Preview Your Browse Profile
       </h2>
       <CVPreview
         data={formData}
@@ -611,11 +613,40 @@ export default function CVBuilder() {
     <div className="space-y-6">
       <h2 className="font-heading text-2xl font-medium text-fk-plum">Step 9: Guarantor / Wali (Private)</h2>
       <div className="space-y-2"><Label>Involvement of Parents/Wali</Label><div className="grid grid-cols-1 gap-2 mt-2">
-        {["My parents/wali will be involved from the beginning", "My parents/wali will be involved if I have found a match", "I do not wish to involve my parents/wali"].map(opt => (
-          <label key={opt} className="flex items-center gap-2"><input type="radio" name="waliInvolvement" value={opt} checked={formData.waliInvolvement === opt} onChange={(e) => handleChange('waliInvolvement', e.target.value)} /> {opt}</label>
+        {WALI_INVOLVEMENT_OPTIONS.map(opt => (
+          <label key={opt} className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="waliInvolvement"
+              value={opt}
+              checked={formData.waliInvolvement === opt}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData((prev) => ({
+                  ...prev,
+                  waliInvolvement: value,
+                  ...(value !== WALI_NO_INVOLVEMENT ? { waliReason: "" } : {}),
+                }));
+                if (errors.length > 0) setErrors([]);
+              }}
+            />
+            {opt}
+          </label>
         ))}
       </div></div>
-      <div className="space-y-2"><Label>If you selected "No", please state the reason (otherwise put N/A)</Label><Textarea value={formData.waliReason} onChange={(e) => handleChange('waliReason', e.target.value)} rows={3} /></div>
+      {formData.waliInvolvement === WALI_NO_INVOLVEMENT && (
+        <div className="space-y-2">
+          <Label>
+            Since you selected that you do not wish to involve your parents/wali,
+            please explain your situation
+          </Label>
+          <Textarea
+            value={formData.waliReason}
+            onChange={(e) => handleChange('waliReason', e.target.value)}
+            rows={3}
+          />
+        </div>
+      )}
       <div className="space-y-2"><Label>Wali’s Relationship to you</Label><div className="flex gap-6 mt-2">
         <label><input type="radio" name="waliRelationship" value="Father" checked={formData.waliRelationship === "Father"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Father</label>
         <label><input type="radio" name="waliRelationship" value="Mother" checked={formData.waliRelationship === "Mother"} onChange={(e) => handleSelectionChange('waliRelationship', e.target.value, 'waliRelationshipOther')} /> Mother</label>

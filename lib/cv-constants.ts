@@ -36,3 +36,11 @@ export const PARTNER_EDUCATION_OPTIONS = [
 export const LEGACY_PARTNER_AGE_UNDER_25 = "Less than 25 years";
 
 export const MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024;
+
+export const WALI_INVOLVEMENT_OPTIONS = [
+  "My parents/wali will be involved from the beginning",
+  "My parents/wali will be involved if I have found a match",
+  "I do not wish to involve my parents/wali",
+] as const;
+
+export const WALI_NO_INVOLVEMENT = WALI_INVOLVEMENT_OPTIONS[2];

@@ -2,6 +2,7 @@ import {
   multiSelectIncludesOther,
   selectionIsOther,
 } from "@/lib/cv-other";
+import { WALI_NO_INVOLVEMENT } from "@/lib/cv-constants";
 
 type FormData = Record<string, string>;
 
@@ -214,11 +215,13 @@ export function getStepWarnings(step: number, data: FormData): string[] {
 
     case 9:
       requireSelection(warnings, data.waliInvolvement, "Wali involvement");
-      requireText(
-        warnings,
-        data.waliReason,
-        'Wali reason (enter "N/A" if not applicable)'
-      );
+      if (data.waliInvolvement === WALI_NO_INVOLVEMENT) {
+        requireText(
+          warnings,
+          data.waliReason,
+          "Please explain why you do not wish to involve your parents/wali"
+        );
+      }
       requireSelection(warnings, data.waliRelationship, "Wali's relationship to you");
       requireOtherSpecify(
         warnings,

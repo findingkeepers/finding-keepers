@@ -1,5 +1,7 @@
 const BROWSE_HIDDEN_FIELDS = new Set([
   "hkidNumber",
+  "waliInvolvement",
+  "waliReason",
   "waliHKID",
   "waliAddress",
   "waliEmail",
