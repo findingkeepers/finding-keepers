@@ -58,6 +58,7 @@ export function AdminLayoutProvider({
   }, [router]);
 
   const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     await supabase.auth.signOut();
     router.push("/fk-admin/login");
   };

@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { PasswordStrength } from '@/components/ui/password-strength';
-import { isPasswordStrongEnough } from '@/lib/password';
+import { validatePasswordPolicy } from '@/lib/password';
+import { updateUserPassword, verifyRecoveryToken } from '@/app/actions/auth';
 import { toast } from 'sonner';
 
 export default function ResetPasswordPage() {
@@ -24,13 +25,24 @@ export default function ResetPasswordPage() {
       const type = params.get("type");
 
       if (token_hash && type === "recovery") {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash,
-          type: "recovery",
-        });
+        const result = await verifyRecoveryToken(token_hash);
 
-        if (error) {
+        if (!result.ok) {
           toast.error("Password reset link expired or invalid.");
+          return;
+        }
+      }
+
+      const sessionResponse = await fetch("/api/auth/session", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (sessionResponse.ok) {
+        const payload = await sessionResponse.json();
+        if (payload.session) {
+          await supabase.auth.setSession(payload.session);
+          setReady(true);
           return;
         }
       }
@@ -60,8 +72,9 @@ export default function ResetPasswordPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!isPasswordStrongEnough(password)) {
-      toast.error("Please choose a stronger password");
+    const passwordCheck = await validatePasswordPolicy(password);
+    if (!passwordCheck.ok) {
+      toast.error(passwordCheck.message);
       return;
     }
 
@@ -74,14 +87,30 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
+    const sessionResponse = await fetch("/api/auth/session", {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (sessionResponse.ok) {
+      const result = await updateUserPassword(password);
+      if (!result.ok) {
+        toast.error(result.message);
+        setLoading(false);
+        return;
+      }
+    } else {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        toast.error(error.message);
+        setLoading(false);
+        return;
+      }
     }
 
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await supabase.auth.signOut();
     toast.success("Password updated successfully!");
     router.push('/login');
     setLoading(false);

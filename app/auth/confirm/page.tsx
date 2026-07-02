@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { confirmEmailAuthCode } from "@/app/actions/auth";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/layout/LoadingSpinner";
 
@@ -34,9 +35,12 @@ function ConfirmEmailContent() {
       }
 
       if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!error) {
-          await supabase.auth.signOut();
+        const result = await confirmEmailAuthCode(code);
+        if (result.ok) {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
           router.replace(`${next}?verified=1`);
           return;
         }

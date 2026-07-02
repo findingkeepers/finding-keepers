@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Jost, Mulish } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthCallbackRedirect } from "@/components/auth/AuthCallbackRedirect";
-import { AuthSessionGuard } from "@/components/auth/AuthSessionGuard";
+import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import "./globals.css";
 
@@ -43,7 +43,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <AuthCallbackRedirect />
-        <AuthSessionGuard />
+        <SessionBootstrap />
         <div className="flex min-h-full flex-1 flex-col">{children}</div>
         <SiteFooter />
         <Toaster

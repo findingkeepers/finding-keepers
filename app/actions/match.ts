@@ -15,6 +15,10 @@ import {
   MAX_ACTIVE_MATCH_REQUESTS,
 } from "@/lib/match-limits";
 import { getMatchDirection } from "@/lib/match-request";
+import {
+  assertEmailVerified,
+  assertProfileVerified,
+} from "@/lib/auth/guards";
 
 async function expireStalePendingMatchRequests(
   admin: NonNullable<ReturnType<typeof createAdminSupabaseClient>>
@@ -208,15 +212,13 @@ export async function requestMatch({
   profileGender?: string;
 }) {
   try {
-    const supabase = await createServerSupabaseClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { success: false, message: "You must be logged in" };
+    const auth = await assertProfileVerified();
+    if (!auth.ok) {
+      return { success: false, message: auth.message };
     }
+
+    const supabase = await createServerSupabaseClient();
+    const user = auth.user;
 
     const admin = createAdminSupabaseClient();
     if (admin) {
@@ -403,15 +405,13 @@ export async function respondToMatchRequest({
   decision: "approve" | "reject";
 }) {
   try {
-    const supabase = await createServerSupabaseClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { success: false, message: "You must be logged in" };
+    const auth = await assertEmailVerified();
+    if (!auth.ok) {
+      return { success: false, message: auth.message };
     }
+
+    const supabase = await createServerSupabaseClient();
+    const user = auth.user;
 
     const { data: myCV } = await supabase
       .from("cvs")

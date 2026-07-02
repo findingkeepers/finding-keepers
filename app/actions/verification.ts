@@ -8,30 +8,7 @@ import {
 } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
-
-async function assertAdmin(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
-) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { ok: false as const, message: "You must be logged in" };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || profile.role !== "admin") {
-    return { ok: false as const, message: "Admin access required" };
-  }
-
-  return { ok: true as const };
-}
+import { assertAdmin } from "@/lib/auth/guards";
 
 function buildVerifiedEmailHtml(fullName: string) {
   const appUrl = getAppUrl();
@@ -273,12 +250,13 @@ export async function updateVerificationStatus({
   newStatus: string;
 }) {
   try {
-    const supabase = await createServerSupabaseClient();
-    const adminCheck = await assertAdmin(supabase);
+    const adminCheck = await assertAdmin();
 
     if (!adminCheck.ok) {
       return { success: false, message: adminCheck.message };
     }
+
+    const supabase = await createServerSupabaseClient();
 
     const { data: existingRequest, error: fetchError } = await supabase
       .from("verification_requests")

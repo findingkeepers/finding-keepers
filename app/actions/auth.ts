@@ -1,10 +1,140 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isResendTestModeRestriction, sendEmail } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { normalizePhone } from "@/lib/phone";
+import {
+  REMEMBER_ME_COOKIE,
+  REMEMBER_ME_MAX_AGE_SECONDS,
+} from "@/lib/auth/constants";
+import { isProduction } from "@/lib/auth/cookie-options";
+import {
+  checkRateLimit,
+  clearRateLimit,
+  recordRateLimitFailure,
+} from "@/lib/rate-limit";
+import { validatePasswordPolicy } from "@/lib/password";
+
+export async function loginUser({
+  email,
+  password,
+  rememberMe,
+}: {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+}) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const rateLimit = await checkRateLimit("login", normalizedEmail);
+  if (!rateLimit.ok) {
+    return { ok: false as const, message: rateLimit.message };
+  }
+
+  const cookieStore = await cookies();
+  if (rememberMe) {
+    cookieStore.set(REMEMBER_ME_COOKIE, "1", {
+      httpOnly: true,
+      secure: isProduction(),
+      sameSite: "lax",
+      path: "/",
+      maxAge: REMEMBER_ME_MAX_AGE_SECONDS,
+    });
+  } else {
+    cookieStore.delete(REMEMBER_ME_COOKIE);
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
+
+  if (error) {
+    await recordRateLimitFailure("login", normalizedEmail);
+
+    const needsConfirmation =
+      error.message.toLowerCase().includes("email not confirmed") ||
+      error.message.toLowerCase().includes("not confirmed");
+
+    return {
+      ok: false as const,
+      message: needsConfirmation
+        ? "Please confirm your email before logging in."
+        : error.message,
+      needsConfirmation,
+    };
+  }
+
+  await clearRateLimit("login", normalizedEmail);
+  return { ok: true as const, rememberMe };
+}
+
+export async function logoutUser() {
+  const supabase = await createServerSupabaseClient();
+  await supabase.auth.signOut();
+
+  const cookieStore = await cookies();
+  cookieStore.delete(REMEMBER_ME_COOKIE);
+
+  return { ok: true as const };
+}
+
+export async function verifyRecoveryToken(tokenHash: string) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "recovery",
+  });
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  return { ok: true as const };
+}
+
+export async function updateUserPassword(password: string) {
+  const passwordCheck = await validatePasswordPolicy(password);
+  if (!passwordCheck.ok) {
+    return { ok: false as const, message: passwordCheck.message };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false as const,
+      message: "Your reset session has expired. Request a new password reset link.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  await supabase.auth.signOut();
+  return { ok: true as const, message: "Password updated successfully." };
+}
+
+export async function confirmEmailAuthCode(code: string) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  await supabase.auth.signOut();
+  return { ok: true as const };
+}
 
 export async function checkPhoneAvailable(phone: string) {
   const normalized = normalizePhone(phone);
@@ -178,6 +308,18 @@ export async function registerUser({
   phone: string;
   is_permanent_resident: boolean;
 }) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const rateLimit = await checkRateLimit("signup", normalizedEmail);
+  if (!rateLimit.ok) {
+    return { ok: false as const, message: rateLimit.message };
+  }
+
+  const passwordCheck = await validatePasswordPolicy(password);
+  if (!passwordCheck.ok) {
+    return { ok: false as const, message: passwordCheck.message };
+  }
+
   const normalizedPhone = normalizePhone(phone);
   if (!normalizedPhone) {
     return { ok: false as const, message: "Please enter a valid phone number" };
@@ -208,7 +350,7 @@ export async function registerUser({
 
   const { data: createdUser, error: createError } =
     await admin.auth.admin.createUser({
-      email,
+      email: normalizedEmail,
       password,
       email_confirm: false,
       user_metadata: userMetadata,
@@ -221,6 +363,7 @@ export async function registerUser({
 
     if (!alreadyRegistered) {
       console.error("Create user error:", createError);
+      await recordRateLimitFailure("signup", normalizedEmail);
       return { ok: false as const, message: createError.message };
     }
   }
@@ -270,15 +413,17 @@ export async function registerUser({
   }
 
   const emailResult = await sendSignupConfirmationEmail({
-    email,
+    email: normalizedEmail,
     password,
     fullName: full_name,
   });
 
   if (!emailResult.ok) {
+    await recordRateLimitFailure("signup", normalizedEmail);
     return emailResult;
   }
 
+  await clearRateLimit("signup", normalizedEmail);
   return { ok: true as const, message: "" };
 }
 
@@ -333,6 +478,12 @@ function buildPasswordResetEmailHtml({
 }
 
 export async function requestPasswordReset({ email }: { email: string }) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const rateLimit = await checkRateLimit("password_reset", normalizedEmail);
+  if (!rateLimit.ok) {
+    return { ok: false as const, message: rateLimit.message };
+  }
   const trimmedEmail = email.trim();
   if (!trimmedEmail) {
     return { ok: false as const, message: "Please enter your email address." };
@@ -393,6 +544,8 @@ export async function requestPasswordReset({ email }: { email: string }) {
       message: "Could not send the password reset email. Please try again shortly.",
     };
   }
+
+  await recordRateLimitFailure("password_reset", normalizedEmail);
 
   return {
     ok: true as const,

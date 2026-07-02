@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { loginUser, resendConfirmationEmail } from '@/app/actions/auth';
 import {
-  clearStoredAuthSessions,
-  createBrowserSupabaseClient,
+  getBrowserSupabaseClient,
+  markTabSessionActive,
 } from '@/lib/supabase/browser';
-import { resendConfirmationEmail } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,26 +58,35 @@ function LoginForm() {
     const loginEmail = formData.get('email') as string;
     const loginPassword = formData.get('password') as string;
 
-    clearStoredAuthSessions();
-    const supabase = createBrowserSupabaseClient(rememberMe);
-
-    const { error } = await supabase.auth.signInWithPassword({
+    const result = await loginUser({
       email: loginEmail,
       password: loginPassword,
+      rememberMe,
     });
 
-    if (error) {
-      const needsConfirmation =
-        error.message.toLowerCase().includes('email not confirmed') ||
-        error.message.toLowerCase().includes('not confirmed');
-
-      if (needsConfirmation) {
+    if (!result.ok) {
+      if (result.needsConfirmation) {
         setShowResendConfirmation(true);
-        toast.error("Please confirm your email before logging in.");
-      } else {
-        toast.error(error.message);
       }
+      toast.error(result.message);
     } else {
+      if (!rememberMe) {
+        markTabSessionActive();
+      }
+
+      const supabase = getBrowserSupabaseClient();
+      const sessionResponse = await fetch('/api/auth/session', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+
+      if (sessionResponse.ok) {
+        const payload = await sessionResponse.json();
+        if (payload.session) {
+          await supabase.auth.setSession(payload.session);
+        }
+      }
+
       toast.success("Logged in successfully!");
       const next = searchParams.get('next');
       window.location.href =

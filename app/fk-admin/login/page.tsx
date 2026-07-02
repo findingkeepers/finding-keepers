@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { loginUser } from '@/app/actions/auth';
+import { getBrowserSupabaseClient } from '@/lib/supabase/browser';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -21,10 +23,30 @@ export default function AdminLoginPage() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const result = await loginUser({ email, password, rememberMe: true });
 
-    if (error) {
-      toast.error(error.message);
+    if (!result.ok) {
+      toast.error(result.message);
+      setLoading(false);
+      return;
+    }
+
+    const client = getBrowserSupabaseClient();
+    const sessionResponse = await fetch('/api/auth/session', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (sessionResponse.ok) {
+      const payload = await sessionResponse.json();
+      if (payload.session) {
+        await client.auth.setSession(payload.session);
+      }
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Login failed. Please try again.");
       setLoading(false);
       return;
     }
@@ -32,7 +54,7 @@ export default function AdminLoginPage() {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', data.user.id)
+      .eq('id', user.id)
       .single();
 
     if (!profile || profile.role !== 'admin') {

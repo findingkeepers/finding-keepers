@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/select';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { TermsAgreement } from '@/components/auth/TermsAgreement';
 import { PasswordStrength } from '@/components/ui/password-strength';
-import { isPasswordStrongEnough } from '@/lib/password';
+import { validatePasswordPolicy } from '@/lib/password';
 import { toast } from 'sonner';
 
 export default function RegisterPage() {
@@ -38,8 +38,9 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!isPasswordStrongEnough(password)) {
-      toast.error("Please choose a stronger password");
+    const passwordCheck = await validatePasswordPolicy(password);
+    if (!passwordCheck.ok) {
+      toast.error(passwordCheck.message);
       setLoading(false);
       return;
     }

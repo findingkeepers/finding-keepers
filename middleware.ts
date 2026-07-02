@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
+import { updateSession } from "@/lib/supabase/middleware";
 
 const canonicalHost = new URL(PRODUCTION_APP_URL).hostname;
 
@@ -25,7 +26,7 @@ export async function middleware(request: NextRequest) {
     return canonicalRedirect;
   }
 
-  return NextResponse.next();
+  return updateSession(request);
 }
 
 export const config = {
