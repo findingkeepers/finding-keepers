@@ -4,7 +4,8 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { bootstrapClientSession, resetSessionBootstrap } from "@/lib/auth/bootstrap-session";
+import { bootstrapClientSession } from "@/lib/auth/bootstrap-session";
+import { performClientLogout } from "@/lib/auth/logout-client";
 import { LoadingSpinner } from "@/components/layout/LoadingSpinner";
 import { AdminSidebar } from "./AdminSidebar";
 
@@ -66,10 +67,7 @@ export function AdminLayoutProvider({
   }, [router]);
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    await supabase.auth.signOut();
-    resetSessionBootstrap();
-    router.push("/fk-admin/login");
+    await performClientLogout("/fk-admin/login");
   };
 
   if (loading) {

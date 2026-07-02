@@ -1,10 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { clearTabSessionMarker } from "@/lib/supabase/browser";
-import { resetSessionBootstrap } from "@/lib/auth/bootstrap-session";
+import { performClientLogout } from "@/lib/auth/logout-client";
 import { DashboardSidebar } from "./DashboardSidebar";
 
 type DashboardLayoutContextValue = {
@@ -29,14 +26,9 @@ export function DashboardLayoutProvider({
   isVerified,
 }: DashboardLayoutProviderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    await supabase.auth.signOut();
-    clearTabSessionMarker();
-    resetSessionBootstrap();
-    router.push("/login");
+    await performClientLogout("/login");
   };
 
   return (
