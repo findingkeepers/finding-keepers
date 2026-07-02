@@ -13,6 +13,7 @@ import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/compone
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
 import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
+import { updateAdminMatchStatus } from '@/app/actions/match';
 
 interface MatchRequest {
   id: string;
@@ -73,24 +74,15 @@ export default function AdminMatchesPage() {
   }, [searchTerm, statusFilter, requests]);
 
   const updateStatus = async (id: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('match_requests')
-        .update({ status: newStatus })
-        .eq('id', id);
+    const result = await updateAdminMatchStatus({ requestId: id, newStatus });
 
-      if (error) {
-        console.error("Update error:", error);
-        toast.error("Failed to update status. Check RLS policies.");
-        return;
-      }
-
-      toast.success(`Status updated to ${newStatus}`);
-      fetchMatchRequests();
-    } catch (error) {
-      console.error("Update error:", error);
-      toast.error("Something went wrong while updating status");
+    if (!result.success) {
+      toast.error(result.message);
+      return;
     }
+
+    toast.success(result.message);
+    fetchMatchRequests();
   };
 
   if (loading) return <LoadingSpinner message="Loading match requests..." />;

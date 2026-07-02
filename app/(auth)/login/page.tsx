@@ -9,6 +9,7 @@ import {
   bootstrapClientSession,
   resetSessionBootstrap,
 } from '@/lib/auth/bootstrap-session';
+import { getSafeRedirectPath } from '@/lib/auth/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -87,9 +88,10 @@ function LoginForm() {
       }
 
       toast.success("Logged in successfully!");
-      const next = searchParams.get('next');
-      window.location.href =
-        next && next.startsWith('/') ? next : '/dashboard';
+      window.location.href = getSafeRedirectPath(
+        searchParams.get('next'),
+        '/dashboard'
+      );
     }
     setLoading(false);
   };

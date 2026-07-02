@@ -9,6 +9,7 @@ import {
 import { getAppUrl } from "@/lib/app-url";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
 import { assertAdmin } from "@/lib/auth/guards";
+import { escapeHtml } from "@/lib/html-escape";
 
 function buildVerifiedEmailHtml(fullName: string) {
   const appUrl = getAppUrl();
@@ -17,7 +18,7 @@ function buildVerifiedEmailHtml(fullName: string) {
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
-      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Assalamualaikum, ${displayName}</h1>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Assalamualaikum, ${escapeHtml(displayName)}</h1>
       <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
         Great news — your account has been verified by our team. You now have full access to Finding Keepers.
       </p>
@@ -52,7 +53,7 @@ function buildInvalidatedEmailHtml(fullName: string) {
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
-      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Assalamualaikum, ${displayName}</h1>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Assalamualaikum, ${escapeHtml(displayName)}</h1>
       <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
         After reviewing your verification documents, our team was unable to approve your application at this time.
       </p>

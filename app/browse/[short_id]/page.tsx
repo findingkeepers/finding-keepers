@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CVSectionCard, CVField } from '@/components/cv/CVSectionCard';
 import { toast } from 'sonner';
+import { getBrowsableProfile } from '@/app/actions/browse';
 import { expireStaleMatchRequests, requestMatch } from '@/app/actions/match';
 import {
   blocksNewRequestToPair,
@@ -64,18 +65,14 @@ export default function ViewProfilePage() {
 
       setUserGender(profile.gender);
 
-      const { data: cvData, error: cvError } = await supabase
-        .from('cvs')
-        .select('*')
-        .eq('short_id', short_id)
-        .single();
-
-      if (cvError || !cvData) {
-        setError('Profile not found');
+      const browseResult = await getBrowsableProfile(short_id);
+      if (!browseResult.ok) {
+        setError(browseResult.message || 'Profile not found');
         setLoading(false);
         return;
       }
 
+      const cvData = browseResult.cv;
       setCv(cvData);
 
       await expireStaleMatchRequests();

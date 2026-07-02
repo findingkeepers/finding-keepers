@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { assertSameOriginRequest } from "@/lib/api-origin";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { REMEMBER_ME_COOKIE } from "@/lib/auth/constants";
 
 export async function POST() {
+  if (!(await assertSameOriginRequest())) {
+    return NextResponse.json({ ok: false }, { status: 403 });
+  }
+
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
 

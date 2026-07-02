@@ -15,6 +15,7 @@ import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { CVPdf } from '@/components/CVPdf';
+import { allocateUniqueShortId } from '@/app/actions/cv';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import {
@@ -27,12 +28,6 @@ import {
 } from '@/lib/cv-constants';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import { useRouter } from 'next/navigation';
-
-const generateShortID = (gender: string) => {
-  const prefix = gender?.toLowerCase() === 'male' ? 'M' : 'F';
-  const randomNum = Math.floor(100 + Math.random() * 900);
-  return `${prefix}${randomNum}`;
-};
 
 export default function CVBuilder() {
   const router = useRouter();
@@ -197,9 +192,15 @@ export default function CVBuilder() {
     setPhoto(file);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `profile-photos/${fileName}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error } = await supabase.storage.from('profile-photos').upload(filePath, file);
       if (error) throw error;
@@ -266,7 +267,12 @@ export default function CVBuilder() {
 
       let shortID = payload.shortID;
       if (!shortID) {
-        shortID = generateShortID(enforcedGender);
+        const allocated = await allocateUniqueShortId();
+        if (!allocated.ok) {
+          toast.error(allocated.message);
+          return;
+        }
+        shortID = allocated.shortId;
         payload.shortID = shortID;
         setFormData(prev => ({ ...prev, shortID }));
       }

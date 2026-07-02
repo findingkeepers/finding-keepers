@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { respondToMatchRequest } from "@/app/actions/match";
+import { assertSameOriginRequest } from "@/lib/api-origin";
 
 export async function POST(request: Request) {
   try {
+    if (!(await assertSameOriginRequest())) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
+    }
     const body = await request.json();
     const requestId = body?.requestId as string | undefined;
     const decision = body?.decision as "approve" | "reject" | undefined;

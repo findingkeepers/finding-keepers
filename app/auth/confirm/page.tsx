@@ -3,7 +3,11 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { confirmEmailAuthCode } from "@/app/actions/auth";
+import {
+  confirmEmailAuthCode,
+  confirmEmailWithOtp,
+} from "@/app/actions/auth";
+import { getSafeRedirectPath } from "@/lib/auth/safe-redirect";
 import { supabase } from "@/lib/supabase";
 import { LoadingSpinner } from "@/components/layout/LoadingSpinner";
 
@@ -17,7 +21,7 @@ function ConfirmEmailContent() {
     ran.current = true;
 
     async function confirmEmail() {
-      const next = searchParams.get("next") || "/login";
+      const next = getSafeRedirectPath(searchParams.get("next"), "/login");
       const code = searchParams.get("code");
       let token_hash = searchParams.get("token_hash");
       let type = searchParams.get("type") as EmailOtpType | null;
@@ -47,9 +51,15 @@ function ConfirmEmailContent() {
       }
 
       if (token_hash && type) {
-        const { error } = await supabase.auth.verifyOtp({ token_hash, type });
-        if (!error) {
-          await supabase.auth.signOut();
+        const result = await confirmEmailWithOtp({
+          tokenHash: token_hash,
+          type,
+        });
+        if (result.ok) {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
           router.replace(`${next}?verified=1`);
           return;
         }

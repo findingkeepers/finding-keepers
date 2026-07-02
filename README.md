@@ -2,80 +2,75 @@
 
 A verified marriage matching platform for HKID holders in Hong Kong. Built with a strong focus on privacy, safety, and manual verification by admins.
 
-## Overview
-
-Finding Keepers allows verified users to create profiles and request matches. All matches are personally facilitated by admins to ensure trust and safety. The platform is currently in its foundational stage.
-
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router) + TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
-- **Backend & Database**: Supabase (PostgreSQL + Authentication)
-- **Form Management**: react-hook-form + Zod
-- **Notifications**: Sonner
+- **Backend & Database**: Supabase (PostgreSQL + Authentication + Storage)
+- **Email**: Resend
 - **Deployment**: Vercel
 
-## Current Features (MVP)
+## Environment Variables
 
-- User registration with basic information
-- Email verification
-- Login system
-- Protected dashboard routes
-- Clean and professional UI
+Create `.env.local` in the project root:
 
-## Installation
+```env
+# Public (browser-safe)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/findingkeepers/finding-keepers.git
-cd finding-keepers
+# Server-only (never expose to the browser)
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=Finding Keepers <noreply@yourdomain.com>
+ADMIN_NOTIFICATION_EMAIL=admin@yourdomain.com
 ```
-### 2. Install dependencies
+
+On Vercel, set the same variables for Production. `SUPABASE_SERVICE_ROLE_KEY` is required for rate limiting, admin operations, and signed document URLs.
+
+## Database & Security Setup
+
+Run the full `supabase/setup.sql` in **Supabase Dashboard → SQL Editor**. This includes:
+
+- Phone uniqueness helper
+- Auth rate limiting table
+- Row Level Security policies
+- Profile privilege protection trigger
+- Browse-safe CV access rules
+- Private `verifications` storage policies
+
+After running SQL, confirm in Supabase Dashboard:
+
+1. **Storage → verifications** bucket is **Private**
+2. **Authentication → Email** → enable leaked-password protection if available
+3. **RLS** is enabled on `profiles`, `cvs`, `match_requests`, `verification_requests`
+
+## Development
+
 ```bash
 npm install
-```
-
-### 3. Set up environment variables
-Create a file named .env.local in the root folder and add the following:
-
-envNEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-### 4. Run the development server
-```bash
 npm run dev
 ```
-Open http://localhost:3000 in your browser.
+
+Open http://localhost:3000
+
+## Security Features
+
+- httpOnly session cookies (no auth tokens in localStorage)
+- Server-side auth guards on sensitive actions
+- Rate limiting on login, signup, reset, and phone checks
+- 12-character passwords with breached-password detection
+- Private verification documents (admin signed URLs only)
+- Middleware route protection for dashboard, browse, and admin
 
 ## Project Structure
-textfinding-keepers/
-├── app/                    # Main application pages
-├── src/
-│   ├── app/(auth)/         # Login and Register pages
-│   ├── lib/                # Supabase client configuration
-│   └── components/         # Reusable UI components
-├── middleware.ts           # Route protection
-├── README.md
-├── package.json
-└── .env.local              # Environment variables (not committed)
 
-## Environment Variables
-| Variable | Description | Required |
-| :--- | :--- | :--- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | Yes |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Public Key | Yes |
-
-## Deployment
-This project is ready to be deployed on Vercel.
-
-Recommended Steps:
-1. Push your code to GitHub
-2. Import the repository on Vercel
-3. Add the environment variables in the Vercel dashboard
-4. Deploy
-
-## License
-This is a private project intended for company use only.
-
-
+```
+finding-keepers/
+├── app/                 # Pages, API routes, server actions
+├── components/          # UI components
+├── lib/                 # Auth, Supabase, validation helpers
+├── supabase/setup.sql   # Database migrations & RLS
+└── middleware.ts        # Session refresh + route protection
+```

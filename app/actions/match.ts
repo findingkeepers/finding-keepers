@@ -15,10 +15,9 @@ import {
   MAX_ACTIVE_MATCH_REQUESTS,
 } from "@/lib/match-limits";
 import { getMatchDirection } from "@/lib/match-request";
-import {
-  assertEmailVerified,
-  assertProfileVerified,
-} from "@/lib/auth/guards";
+import { assertAdmin, assertProfileVerified } from "@/lib/auth/guards";
+import { gendersAreOpposite } from "@/lib/gender";
+import { escapeHtml } from "@/lib/html-escape";
 
 async function expireStalePendingMatchRequests(
   admin: NonNullable<ReturnType<typeof createAdminSupabaseClient>>
@@ -93,22 +92,22 @@ function buildAdminMatchEmailHtml({
 
       <h3 style="color: #1e40af; margin-top: 25px;">Person Who Requested</h3>
       <div style="background-color: #f0f9ff; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
-        <p><strong>Short ID:</strong> ${requester.shortId}</p>
-        <p><strong>Name:</strong> ${requester.name}</p>
-        <p><strong>Contact:</strong> ${requester.phone}</p>
-        <p><strong>Wali/Guarantor:</strong> ${requester.waliName} (${requester.waliRelation})</p>
-        <p><strong>Wali Phone:</strong> ${requester.waliPhone}</p>
-        <p><strong>Wali Email:</strong> ${requester.waliEmail}</p>
+        <p><strong>Short ID:</strong> ${escapeHtml(requester.shortId)}</p>
+        <p><strong>Name:</strong> ${escapeHtml(requester.name)}</p>
+        <p><strong>Contact:</strong> ${escapeHtml(requester.phone)}</p>
+        <p><strong>Wali/Guarantor:</strong> ${escapeHtml(requester.waliName)} (${escapeHtml(requester.waliRelation)})</p>
+        <p><strong>Wali Phone:</strong> ${escapeHtml(requester.waliPhone)}</p>
+        <p><strong>Wali Email:</strong> ${escapeHtml(requester.waliEmail)}</p>
       </div>
 
       <h3 style="color: #9f1239; margin-top: 20px;">Person Request Sent To</h3>
       <div style="background-color: #fef2f2; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
-        <p><strong>Short ID:</strong> ${recipient.shortId}</p>
-        <p><strong>Name:</strong> ${recipient.name}</p>
-        <p><strong>Contact:</strong> ${recipient.phone}</p>
-        <p><strong>Wali/Guarantor:</strong> ${recipient.waliName} (${recipient.waliRelation})</p>
-        <p><strong>Wali Phone:</strong> ${recipient.waliPhone}</p>
-        <p><strong>Wali Email:</strong> ${recipient.waliEmail}</p>
+        <p><strong>Short ID:</strong> ${escapeHtml(recipient.shortId)}</p>
+        <p><strong>Name:</strong> ${escapeHtml(recipient.name)}</p>
+        <p><strong>Contact:</strong> ${escapeHtml(recipient.phone)}</p>
+        <p><strong>Wali/Guarantor:</strong> ${escapeHtml(recipient.waliName)} (${escapeHtml(recipient.waliRelation)})</p>
+        <p><strong>Wali Phone:</strong> ${escapeHtml(recipient.waliPhone)}</p>
+        <p><strong>Wali Email:</strong> ${escapeHtml(recipient.waliEmail)}</p>
       </div>
 
       <a href="${appUrl}/fk-admin/matches" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 10px;">
@@ -265,6 +264,31 @@ export async function requestMatch({
       return { success: false, message: "You cannot send a request to yourself" };
     }
 
+    if (
+      !gendersAreOpposite(
+        requesterCV.data.gender,
+        requestedCV.data.gender
+      )
+    ) {
+      return {
+        success: false,
+        message: "Match requests can only be sent to opposite-gender profiles",
+      };
+    }
+
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("verification_status")
+      .eq("id", requestedCV.user_id)
+      .maybeSingle();
+
+    if (targetProfile?.verification_status !== "verified") {
+      return {
+        success: false,
+        message: "This profile is not available for match requests",
+      };
+    }
+
     const isRequesterMale = requesterCV.data.gender?.toLowerCase() === "male";
     const requesterShortId = requesterCV.short_id;
     const requestedShortId = requestedCV.short_id;
@@ -405,7 +429,7 @@ export async function respondToMatchRequest({
   decision: "approve" | "reject";
 }) {
   try {
-    const auth = await assertEmailVerified();
+    const auth = await assertProfileVerified();
     if (!auth.ok) {
       return { success: false, message: auth.message };
     }
@@ -585,4 +609,50 @@ export async function respondToMatchRequest({
       error instanceof Error ? error.message : "Something went wrong";
     return { success: false, message };
   }
+}
+
+const ADMIN_MATCH_STATUSES = new Set([
+  "pending",
+  "approved",
+  "contacted",
+  "completed",
+  "rejected",
+  "expired",
+]);
+
+export async function updateAdminMatchStatus({
+  requestId,
+  newStatus,
+}: {
+  requestId: string;
+  newStatus: string;
+}) {
+  const adminCheck = await assertAdmin();
+  if (!adminCheck.ok) {
+    return { success: false, message: adminCheck.message };
+  }
+
+  if (!ADMIN_MATCH_STATUSES.has(newStatus)) {
+    return { success: false, message: "Invalid status" };
+  }
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return {
+      success: false,
+      message: "Server configuration is incomplete",
+    };
+  }
+
+  const { error } = await admin
+    .from("match_requests")
+    .update({ status: newStatus })
+    .eq("id", requestId);
+
+  if (error) {
+    console.error("Admin match status update error:", error);
+    return { success: false, message: "Failed to update status" };
+  }
+
+  return { success: true, message: `Status updated to ${newStatus}` };
 }

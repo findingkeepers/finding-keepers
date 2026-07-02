@@ -170,3 +170,215 @@ CREATE POLICY verification_requests_admin_all ON public.verification_requests
   );
 
 -- match_requests status values include: pending, approved, contacted, completed, rejected, expired
+
+-- 9) Block privilege escalation on profiles (role / verification_status)
+CREATE OR REPLACE FUNCTION public.is_admin_user()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.protect_profile_privileged_fields()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR public.is_admin_user() THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    NEW.role := OLD.role;
+  END IF;
+
+  IF NEW.verification_status IS DISTINCT FROM OLD.verification_status THEN
+    NEW.verification_status := OLD.verification_status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS protect_profile_privileged_fields ON public.profiles;
+CREATE TRIGGER protect_profile_privileged_fields
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.protect_profile_privileged_fields();
+
+-- 10) Phone check: server-only (no public enumeration)
+REVOKE EXECUTE ON FUNCTION public.check_phone_available(text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.check_phone_available(text) FROM authenticated;
+
+-- 11) Browse-safe CV access (verified viewer, opposite gender, verified target)
+CREATE OR REPLACE FUNCTION public.viewer_can_browse_cv(
+  cv_owner_id uuid,
+  cv_gender text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  viewer_gender text;
+  viewer_verified text;
+  normalized_cv_gender text;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+
+  IF cv_owner_id = auth.uid() THEN
+    RETURN true;
+  END IF;
+
+  SELECT gender, verification_status
+  INTO viewer_gender, viewer_verified
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  IF viewer_verified IS DISTINCT FROM 'verified' THEN
+    RETURN false;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles target
+    WHERE target.id = cv_owner_id
+      AND target.verification_status = 'verified'
+  ) THEN
+    RETURN false;
+  END IF;
+
+  normalized_cv_gender := lower(trim(coalesce(cv_gender, '')));
+
+  IF lower(trim(coalesce(viewer_gender, ''))) = 'male'
+     AND normalized_cv_gender <> 'female' THEN
+    RETURN false;
+  END IF;
+
+  IF lower(trim(coalesce(viewer_gender, ''))) = 'female'
+     AND normalized_cv_gender <> 'male' THEN
+    RETURN false;
+  END IF;
+
+  RETURN true;
+END;
+$$;
+
+DROP POLICY IF EXISTS cvs_select_verified_users ON public.cvs;
+DROP POLICY IF EXISTS cvs_select_browse ON public.cvs;
+CREATE POLICY cvs_select_browse ON public.cvs
+  FOR SELECT TO authenticated
+  USING (
+    public.viewer_can_browse_cv(
+      user_id,
+      COALESCE(data->>'gender', '')
+    )
+  );
+
+DROP POLICY IF EXISTS profiles_select_verified_members ON public.profiles;
+CREATE POLICY profiles_select_verified_members ON public.profiles
+  FOR SELECT TO authenticated
+  USING (
+    id = auth.uid()
+    OR public.is_admin_user()
+  );
+
+DROP POLICY IF EXISTS match_requests_insert_requester ON public.match_requests;
+CREATE POLICY match_requests_insert_requester ON public.match_requests
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    requested_by_short_id IN (
+      SELECT short_id FROM public.cvs WHERE user_id = auth.uid()
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM public.profiles requester
+      WHERE requester.id = auth.uid()
+        AND requester.verification_status = 'verified'
+    )
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS cvs_short_id_unique ON public.cvs (short_id);
+
+-- 12) Private verification storage + scoped profile photos
+UPDATE storage.buckets
+SET public = false
+WHERE id = 'verifications';
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('verifications', 'verifications', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('profile-photos', 'profile-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Users upload own verification docs" ON storage.objects;
+CREATE POLICY "Users upload own verification docs"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'verifications'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users read own verification docs" ON storage.objects;
+CREATE POLICY "Users read own verification docs"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'verifications'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Admins read verification docs" ON storage.objects;
+CREATE POLICY "Admins read verification docs"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+  bucket_id = 'verifications'
+  AND public.is_admin_user()
+);
+
+DROP POLICY IF EXISTS "Users upload own profile photos" ON storage.objects;
+CREATE POLICY "Users upload own profile photos"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'profile-photos'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users update own profile photos" ON storage.objects;
+CREATE POLICY "Users update own profile photos"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'profile-photos'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+)
+WITH CHECK (
+  bucket_id = 'profile-photos'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users delete own profile photos" ON storage.objects;
+CREATE POLICY "Users delete own profile photos"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'profile-photos'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Public read profile photos" ON storage.objects;
+CREATE POLICY "Public read profile photos"
+ON storage.objects FOR SELECT TO authenticated
+USING (bucket_id = 'profile-photos');

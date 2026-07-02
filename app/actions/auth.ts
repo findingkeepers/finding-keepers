@@ -14,9 +14,12 @@ import { isProduction } from "@/lib/auth/cookie-options";
 import {
   checkRateLimit,
   clearRateLimit,
+  recordRateLimitAttempt,
   recordRateLimitFailure,
 } from "@/lib/rate-limit";
 import { validatePasswordPolicy } from "@/lib/password";
+import { escapeHtml } from "@/lib/html-escape";
+import type { EmailOtpType } from "@supabase/supabase-js";
 
 export async function loginUser({
   email,
@@ -136,14 +139,49 @@ export async function confirmEmailAuthCode(code: string) {
   return { ok: true as const };
 }
 
+export async function confirmEmailWithOtp({
+  tokenHash,
+  type,
+}: {
+  tokenHash: string;
+  type: EmailOtpType;
+}) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type,
+  });
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  await supabase.auth.signOut();
+  return { ok: true as const };
+}
+
 export async function checkPhoneAvailable(phone: string) {
   const normalized = normalizePhone(phone);
   if (!normalized) {
     return { available: false, message: "Please enter a valid phone number" };
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase.rpc("check_phone_available", {
+  const rateLimit = await checkRateLimit("phone_check", normalized);
+  if (!rateLimit.ok) {
+    return { available: false, message: rateLimit.message };
+  }
+
+  await recordRateLimitAttempt("phone_check", normalized);
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return {
+      available: false,
+      message: "Could not verify phone number right now. Please try again.",
+    };
+  }
+
+  const { data, error } = await admin.rpc("check_phone_available", {
     phone_input: normalized,
   });
 
@@ -151,15 +189,14 @@ export async function checkPhoneAvailable(phone: string) {
     console.error("Phone check error:", error);
     return {
       available: false,
-      message:
-        "Could not verify phone number. Please run supabase/setup.sql in your Supabase SQL Editor.",
+      message: "Could not verify phone number right now. Please try again.",
     };
   }
 
   if (data === false) {
     return {
       available: false,
-      message: "This phone number has already been used to register an account.",
+      message: "This phone number cannot be used for registration.",
     };
   }
 
@@ -202,25 +239,10 @@ async function sendSignupConfirmationEmail({
   if (linkError || !linkData?.properties?.action_link) {
     console.error("Generate signup link error:", linkError);
 
-    if (linkData?.user?.email_confirmed_at) {
-      return {
-        ok: false,
-        message: "This email is already confirmed. You can log in now.",
-      };
-    }
-
     return {
       ok: false,
       message:
-        linkError?.message ||
-        "Could not create a confirmation link. Please try again shortly.",
-    };
-  }
-
-  if (linkData.user?.email_confirmed_at) {
-    return {
-      ok: false,
-      message: "This email is already confirmed. You can log in now.",
+        "If an account exists for this email, a confirmation link has been sent.",
     };
   }
 
@@ -272,7 +294,7 @@ function buildSignupConfirmationEmailHtml({
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
-      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Welcome, ${displayName}</h1>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Welcome, ${escapeHtml(displayName)}</h1>
       <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
         Thank you for creating your Finding Keepers account. Please confirm your email address to continue.
       </p>
@@ -384,7 +406,7 @@ export async function registerUser({
       return {
         ok: false as const,
         message:
-          "An account with this email already exists. Try logging in or resetting your password.",
+          "If an account exists for this email, try logging in or resetting your password.",
       };
     }
 
@@ -458,7 +480,7 @@ function buildPasswordResetEmailHtml({
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c; margin: 0 0 24px;">Finding Keepers</p>
       <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Reset your password</h1>
       <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
-        Assalamualaikum ${displayName}, we received a request to reset your Finding Keepers password.
+        Assalamualaikum ${escapeHtml(displayName)}, we received a request to reset your Finding Keepers password.
       </p>
       <a href="${resetUrl}" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin: 8px 0 28px;">
         Reset password
@@ -484,6 +506,9 @@ export async function requestPasswordReset({ email }: { email: string }) {
   if (!rateLimit.ok) {
     return { ok: false as const, message: rateLimit.message };
   }
+
+  await recordRateLimitAttempt("password_reset", normalizedEmail);
+
   const trimmedEmail = email.trim();
   if (!trimmedEmail) {
     return { ok: false as const, message: "Please enter your email address." };
@@ -545,11 +570,9 @@ export async function requestPasswordReset({ email }: { email: string }) {
     };
   }
 
-  await recordRateLimitFailure("password_reset", normalizedEmail);
-
   return {
     ok: true as const,
-    message: "Password reset link sent to your email.",
+    message: "If an account exists for that email, we sent a password reset link.",
   };
 }
 
@@ -569,7 +592,7 @@ export async function sendVerificationPendingEmail({
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
         <p style="font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
-        <h1 style="font-size: 24px; color: #6b3563;">Assalamualaikum, ${displayName}</h1>
+        <h1 style="font-size: 24px; color: #6b3563;">Assalamualaikum, ${escapeHtml(displayName)}</h1>
         <p style="font-size: 16px; line-height: 1.6; color: #5a4a55;">
           Thank you for submitting your verification documents. Our admin team is reviewing your application.
         </p>

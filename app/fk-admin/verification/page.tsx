@@ -13,6 +13,7 @@ import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/compone
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
 import { updateVerificationStatus } from '@/app/actions/verification';
+import { getVerificationSignedUrl } from '@/app/actions/storage';
 import {
   formatVerificationChoice,
   isNonPrVerificationRequest,
@@ -42,8 +43,6 @@ interface VerificationRequest {
     is_permanent_resident: boolean | null;
   };
 }
-
-const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/verifications`;
 
 export default function AdminVerifications() {
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
@@ -113,6 +112,21 @@ export default function AdminVerifications() {
 
     setFilteredRequests(result);
   }, [searchTerm, statusFilter, requests]);
+
+  const openDocument = async (path: string | null) => {
+    if (!path) {
+      toast.error("Document not available");
+      return;
+    }
+
+    const result = await getVerificationSignedUrl(path);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+
+    window.open(result.url, "_blank", "noopener,noreferrer");
+  };
 
   const updateStatus = async (id: string, newStatus: string, userId: string) => {
     const result = await updateVerificationStatus({
@@ -231,34 +245,31 @@ export default function AdminVerifications() {
                             : 'N/A'}
                       </DataTableCell>
                       <DataTableCell className="text-sm">
-                        <a
-                          href={`${storageBase}/${req.hkid_image_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => void openDocument(req.hkid_image_path)}
                           className="text-fk-mauve hover:underline"
                         >
                           HKID
-                        </a>
+                        </button>
                         <span className="mx-2 text-border">|</span>
-                        <a
-                          href={`${storageBase}/${req.payment_proof_path}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => void openDocument(req.payment_proof_path)}
                           className="text-fk-mauve hover:underline"
                         >
                           Payment
-                        </a>
+                        </button>
                         {req.visa_document_path && (
                           <>
                             <span className="mx-2 text-border">|</span>
-                            <a
-                              href={`${storageBase}/${req.visa_document_path}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => void openDocument(req.visa_document_path)}
                               className="text-fk-mauve hover:underline"
                             >
                               Visa
-                            </a>
+                            </button>
                           </>
                         )}
                       </DataTableCell>

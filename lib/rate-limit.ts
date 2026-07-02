@@ -1,7 +1,11 @@
 import { headers } from "next/headers";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-export type RateLimitAction = "login" | "signup" | "password_reset";
+export type RateLimitAction =
+  | "login"
+  | "signup"
+  | "password_reset"
+  | "phone_check";
 
 const LIMITS: Record<
   RateLimitAction,
@@ -10,7 +14,16 @@ const LIMITS: Record<
   login: { maxAttempts: 5, windowMinutes: 15 },
   signup: { maxAttempts: 5, windowMinutes: 15 },
   password_reset: { maxAttempts: 5, windowMinutes: 15 },
+  phone_check: { maxAttempts: 10, windowMinutes: 15 },
 };
+
+function isProduction() {
+  return process.env.NODE_ENV === "production";
+}
+
+function rateLimitUnavailableMessage() {
+  return "Security checks are temporarily unavailable. Please try again shortly.";
+}
 
 export async function getClientIp() {
   const headerStore = await headers();
@@ -22,27 +35,53 @@ export async function getClientIp() {
   return headerStore.get("x-real-ip")?.trim() || "unknown";
 }
 
-function buildBucketKey(action: RateLimitAction, email: string, ip: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  return `${action}:${ip}:${normalizedEmail}`;
+function buildBucketKey(action: RateLimitAction, identifier: string, ip: string) {
+  const normalized = identifier.trim().toLowerCase();
+  return `${action}:${ip}:${normalized}`;
+}
+
+async function getAdminOrFail() {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    if (isProduction()) {
+      return {
+        ok: false as const,
+        message: rateLimitUnavailableMessage(),
+      };
+    }
+    return { ok: true as const, admin: null };
+  }
+
+  return { ok: true as const, admin };
 }
 
 export async function checkRateLimit(
   action: RateLimitAction,
-  email: string
-): Promise<{ ok: true } | { ok: false; message: string; retryAfterMinutes: number }> {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
+  identifier: string
+): Promise<
+  | { ok: true }
+  | { ok: false; message: string; retryAfterMinutes: number }
+> {
+  const adminResult = await getAdminOrFail();
+  if (!adminResult.ok) {
+    return {
+      ok: false,
+      message: adminResult.message,
+      retryAfterMinutes: 15,
+    };
+  }
+
+  if (!adminResult.admin) {
     return { ok: true };
   }
 
   const ip = await getClientIp();
-  const bucketKey = buildBucketKey(action, email, ip);
+  const bucketKey = buildBucketKey(action, identifier, ip);
   const { maxAttempts, windowMinutes } = LIMITS[action];
   const windowMs = windowMinutes * 60 * 1000;
   const now = Date.now();
 
-  const { data: existing, error: fetchError } = await admin
+  const { data: existing, error: fetchError } = await adminResult.admin
     .from("auth_rate_limits")
     .select("attempt_count, window_start")
     .eq("bucket_key", bucketKey)
@@ -50,6 +89,13 @@ export async function checkRateLimit(
 
   if (fetchError) {
     console.error("Rate limit fetch error:", fetchError);
+    if (isProduction()) {
+      return {
+        ok: false,
+        message: rateLimitUnavailableMessage(),
+        retryAfterMinutes: 15,
+      };
+    }
     return { ok: true };
   }
 
@@ -76,18 +122,19 @@ export async function checkRateLimit(
   return { ok: true };
 }
 
-export async function recordRateLimitFailure(
+export async function recordRateLimitAttempt(
   action: RateLimitAction,
-  email: string
+  identifier: string
 ) {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
+  const adminResult = await getAdminOrFail();
+  if (!adminResult.ok || !adminResult.admin) {
     return;
   }
 
+  const admin = adminResult.admin;
   const ip = await getClientIp();
-  const bucketKey = buildBucketKey(action, email, ip);
-  const { maxAttempts, windowMinutes } = LIMITS[action];
+  const bucketKey = buildBucketKey(action, identifier, ip);
+  const { windowMinutes } = LIMITS[action];
   const windowMs = windowMinutes * 60 * 1000;
   const now = new Date().toISOString();
 
@@ -121,20 +168,26 @@ export async function recordRateLimitFailure(
     .from("auth_rate_limits")
     .update({ attempt_count: existing.attempt_count + 1 })
     .eq("bucket_key", bucketKey);
-
-  if (existing.attempt_count + 1 >= maxAttempts) {
-    console.warn(`Rate limit reached for ${action} (${bucketKey})`);
-  }
 }
 
-export async function clearRateLimit(action: RateLimitAction, email: string) {
+export async function recordRateLimitFailure(
+  action: RateLimitAction,
+  identifier: string
+) {
+  await recordRateLimitAttempt(action, identifier);
+}
+
+export async function clearRateLimit(
+  action: RateLimitAction,
+  identifier: string
+) {
   const admin = createAdminSupabaseClient();
   if (!admin) {
     return;
   }
 
   const ip = await getClientIp();
-  const bucketKey = buildBucketKey(action, email, ip);
+  const bucketKey = buildBucketKey(action, identifier, ip);
 
   await admin.from("auth_rate_limits").delete().eq("bucket_key", bucketKey);
 }
