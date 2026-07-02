@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { bootstrapClientSession } from '@/lib/auth/bootstrap-session';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,12 @@ export default function BrowsePage() {
 
   useEffect(() => {
     const fetchOppositeGenderCVs = async () => {
+      const session = await bootstrapClientSession();
+      if (!session.authenticated) {
+        router.push('/login');
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/login');

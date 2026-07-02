@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { loginUser } from '@/app/actions/auth';
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser';
+import { bootstrapClientSession, resetSessionBootstrap } from '@/lib/auth/bootstrap-session';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -31,17 +31,13 @@ export default function AdminLoginPage() {
       return;
     }
 
-    const client = getBrowserSupabaseClient();
-    const sessionResponse = await fetch('/api/auth/session', {
-      credentials: 'include',
-      cache: 'no-store',
-    });
+    resetSessionBootstrap();
+    const session = await bootstrapClientSession();
 
-    if (sessionResponse.ok) {
-      const payload = await sessionResponse.json();
-      if (payload.session) {
-        await client.auth.setSession(payload.session);
-      }
+    if (!session.authenticated) {
+      toast.error("Login succeeded but your session could not start. Please try again.");
+      setLoading(false);
+      return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();

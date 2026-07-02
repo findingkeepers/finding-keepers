@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loginUser, resendConfirmationEmail } from '@/app/actions/auth';
+import { markTabSessionActive } from '@/lib/supabase/browser';
 import {
-  getBrowserSupabaseClient,
-  markTabSessionActive,
-} from '@/lib/supabase/browser';
+  bootstrapClientSession,
+  resetSessionBootstrap,
+} from '@/lib/auth/bootstrap-session';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,21 +71,19 @@ function LoginForm() {
       }
       toast.error(result.message);
     } else {
+      resetSessionBootstrap();
+
       if (!rememberMe) {
         markTabSessionActive();
       }
 
-      const supabase = getBrowserSupabaseClient();
-      const sessionResponse = await fetch('/api/auth/session', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-
-      if (sessionResponse.ok) {
-        const payload = await sessionResponse.json();
-        if (payload.session) {
-          await supabase.auth.setSession(payload.session);
-        }
+      const session = await bootstrapClientSession();
+      if (!session.authenticated) {
+        toast.error(
+          "Login succeeded but your session could not start. Please try again."
+        );
+        setLoading(false);
+        return;
       }
 
       toast.success("Logged in successfully!");

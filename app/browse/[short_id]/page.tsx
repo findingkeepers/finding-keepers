@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { bootstrapClientSession } from '@/lib/auth/bootstrap-session';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,6 +38,12 @@ export default function ViewProfilePage() {
   useEffect(() => {
     const fetchCV = async () => {
       if (!short_id) return;
+
+      const session = await bootstrapClientSession();
+      if (!session.authenticated) {
+        router.push('/login');
+        return;
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {

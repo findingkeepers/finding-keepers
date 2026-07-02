@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { clearTabSessionMarker } from "@/lib/supabase/browser";
+import { resetSessionBootstrap } from "@/lib/auth/bootstrap-session";
 import { DashboardSidebar } from "./DashboardSidebar";
 
 type DashboardLayoutContextValue = {
@@ -34,6 +35,7 @@ export function DashboardLayoutProvider({
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     await supabase.auth.signOut();
     clearTabSessionMarker();
+    resetSessionBootstrap();
     router.push("/login");
   };
 
