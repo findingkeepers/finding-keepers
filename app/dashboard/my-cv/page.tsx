@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { pdf } from '@react-pdf/renderer';
-import { CVPdf } from '@/components/CVPdf';
+import { downloadCvPdf } from '@/lib/download-cv-pdf';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -50,21 +49,16 @@ export default function MyCVPage() {
 
     setDownloading(true);
     try {
-      const blob = await pdf(<CVPdf data={cv.data} />).toBlob();
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Finding_Keepers_CV_${cv.short_id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success("CV downloaded successfully!");
+      await downloadCvPdf({
+        data: cv.data,
+        shortId: cv.short_id,
+        photoUrl: cv.photo_url,
+        filename: `Finding_Keepers_CV_${cv.short_id}.pdf`,
+      });
+      toast.success('CV downloaded successfully!');
     } catch (error) {
-      console.error("PDF download error:", error);
-      toast.error("Failed to download PDF");
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
     } finally {
       setDownloading(false);
     }

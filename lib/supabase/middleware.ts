@@ -83,7 +83,9 @@ export async function updateSession(request: NextRequest) {
   if (
     user &&
     PUBLIC_AUTH_PAGES.has(pathname) &&
-    pathname !== "/fk-admin/login"
+    pathname !== "/fk-admin/login" &&
+    pathname !== "/reset-password" &&
+    pathname !== "/forgot-password"
   ) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";

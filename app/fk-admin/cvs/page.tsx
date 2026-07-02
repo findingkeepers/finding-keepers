@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { pdf } from '@react-pdf/renderer';
-import { CVPdf } from '@/components/CVPdf';
+import { downloadCvPdf } from '@/lib/download-cv-pdf';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -77,15 +76,16 @@ export default function AdminCVsPage() {
   const handleDownloadPDF = async (cv: CV) => {
     setDownloadingId(cv.id);
     try {
-      const blob = await pdf(<CVPdf data={{ ...cv.data, shortID: cv.short_id }} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `CV_${cv.short_id}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Failed to download PDF");
+      await downloadCvPdf({
+        data: cv.data,
+        shortId: cv.short_id,
+        photoUrl: cv.photo_url,
+        filename: `CV_${cv.short_id}.pdf`,
+      });
+      toast.success('CV downloaded successfully');
+    } catch (error) {
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
     } finally {
       setDownloadingId(null);
     }

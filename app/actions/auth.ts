@@ -100,6 +100,17 @@ export async function verifyRecoveryToken(tokenHash: string) {
   return { ok: true as const };
 }
 
+export async function exchangeRecoveryCode(code: string) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  return { ok: true as const };
+}
+
 export async function updateUserPassword(password: string) {
   const passwordCheck = await validatePasswordPolicy(password);
   if (!passwordCheck.ok) {
