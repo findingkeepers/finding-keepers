@@ -17,12 +17,14 @@ const LIMITS: Record<
   phone_check: { maxAttempts: 10, windowMinutes: 15 },
 };
 
-function isProduction() {
-  return process.env.NODE_ENV === "production";
-}
+const loggedWarnings = new Set<string>();
 
-function rateLimitUnavailableMessage() {
-  return "Security checks are temporarily unavailable. Please try again shortly.";
+function warnOnce(key: string, message: string) {
+  if (loggedWarnings.has(key)) {
+    return;
+  }
+  loggedWarnings.add(key);
+  console.warn(message);
 }
 
 export async function getClientIp() {
@@ -40,19 +42,12 @@ function buildBucketKey(action: RateLimitAction, identifier: string, ip: string)
   return `${action}:${ip}:${normalized}`;
 }
 
-async function getAdminOrFail() {
-  const admin = createAdminSupabaseClient();
-  if (!admin) {
-    if (isProduction()) {
-      return {
-        ok: false as const,
-        message: rateLimitUnavailableMessage(),
-      };
-    }
-    return { ok: true as const, admin: null };
-  }
-
-  return { ok: true as const, admin };
+function isMissingRateLimitTable(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42P01" ||
+    error.message?.includes("auth_rate_limits") ||
+    error.message?.includes("does not exist")
+  );
 }
 
 export async function checkRateLimit(
@@ -62,16 +57,12 @@ export async function checkRateLimit(
   | { ok: true }
   | { ok: false; message: string; retryAfterMinutes: number }
 > {
-  const adminResult = await getAdminOrFail();
-  if (!adminResult.ok) {
-    return {
-      ok: false,
-      message: adminResult.message,
-      retryAfterMinutes: 15,
-    };
-  }
-
-  if (!adminResult.admin) {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    warnOnce(
+      "missing-service-role",
+      "Rate limiting skipped: SUPABASE_SERVICE_ROLE_KEY is not set."
+    );
     return { ok: true };
   }
 
@@ -81,7 +72,7 @@ export async function checkRateLimit(
   const windowMs = windowMinutes * 60 * 1000;
   const now = Date.now();
 
-  const { data: existing, error: fetchError } = await adminResult.admin
+  const { data: existing, error: fetchError } = await admin
     .from("auth_rate_limits")
     .select("attempt_count, window_start")
     .eq("bucket_key", bucketKey)
@@ -89,12 +80,11 @@ export async function checkRateLimit(
 
   if (fetchError) {
     console.error("Rate limit fetch error:", fetchError);
-    if (isProduction()) {
-      return {
-        ok: false,
-        message: rateLimitUnavailableMessage(),
-        retryAfterMinutes: 15,
-      };
+    if (isMissingRateLimitTable(fetchError)) {
+      warnOnce(
+        "missing-rate-limit-table",
+        "Rate limiting skipped: run section 7 of supabase/setup.sql to create auth_rate_limits."
+      );
     }
     return { ok: true };
   }
@@ -126,23 +116,26 @@ export async function recordRateLimitAttempt(
   action: RateLimitAction,
   identifier: string
 ) {
-  const adminResult = await getAdminOrFail();
-  if (!adminResult.ok || !adminResult.admin) {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
     return;
   }
 
-  const admin = adminResult.admin;
   const ip = await getClientIp();
   const bucketKey = buildBucketKey(action, identifier, ip);
   const { windowMinutes } = LIMITS[action];
   const windowMs = windowMinutes * 60 * 1000;
   const now = new Date().toISOString();
 
-  const { data: existing } = await admin
+  const { data: existing, error: fetchError } = await admin
     .from("auth_rate_limits")
     .select("attempt_count, window_start")
     .eq("bucket_key", bucketKey)
     .maybeSingle();
+
+  if (fetchError) {
+    return;
+  }
 
   if (!existing) {
     await admin.from("auth_rate_limits").insert({

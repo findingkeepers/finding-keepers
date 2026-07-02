@@ -174,16 +174,11 @@ export async function checkPhoneAvailable(phone: string) {
   await recordRateLimitAttempt("phone_check", normalized);
 
   const admin = createAdminSupabaseClient();
-  if (!admin) {
-    return {
-      available: false,
-      message: "Could not verify phone number right now. Please try again.",
-    };
-  }
+  const supabase = admin ?? (await createServerSupabaseClient());
 
-  const { data, error } = await admin.rpc("check_phone_available", {
-    phone_input: normalized,
-  });
+  const { data, error } = admin
+    ? await admin.rpc("check_phone_available", { phone_input: normalized })
+    : await supabase.rpc("check_phone_available", { phone_input: normalized });
 
   if (error) {
     console.error("Phone check error:", error);
