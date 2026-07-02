@@ -78,7 +78,11 @@ CREATE POLICY profiles_update_own ON public.profiles
 DROP POLICY IF EXISTS profiles_insert_own ON public.profiles;
 CREATE POLICY profiles_insert_own ON public.profiles
   FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (
+    auth.uid() = id
+    AND coalesce(role, '') <> 'admin'
+    AND coalesce(verification_status, 'unverified') = 'unverified'
+  );
 
 DROP POLICY IF EXISTS profiles_admin_all ON public.profiles;
 CREATE POLICY profiles_admin_all ON public.profiles
@@ -148,10 +152,17 @@ CREATE POLICY match_requests_admin_all ON public.match_requests
 ALTER TABLE public.verification_requests ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS verification_requests_own ON public.verification_requests;
-CREATE POLICY verification_requests_own ON public.verification_requests
-  FOR ALL TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS verification_requests_select_own ON public.verification_requests;
+DROP POLICY IF EXISTS verification_requests_insert_own ON public.verification_requests;
+CREATE POLICY verification_requests_select_own ON public.verification_requests
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+CREATE POLICY verification_requests_insert_own ON public.verification_requests
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = auth.uid()
+    AND status = 'pending'
+  );
 
 DROP POLICY IF EXISTS verification_requests_admin_all ON public.verification_requests;
 CREATE POLICY verification_requests_admin_all ON public.verification_requests
@@ -191,6 +202,18 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.role = 'admin' THEN
+      NEW.role := NULL;
+    END IF;
+
+    IF NEW.verification_status IS DISTINCT FROM 'unverified' THEN
+      NEW.verification_status := 'unverified';
+    END IF;
+
+    RETURN NEW;
+  END IF;
+
   IF NEW.role IS DISTINCT FROM OLD.role THEN
     NEW.role := OLD.role;
   END IF;
@@ -205,9 +228,39 @@ $$;
 
 DROP TRIGGER IF EXISTS protect_profile_privileged_fields ON public.profiles;
 CREATE TRIGGER protect_profile_privileged_fields
-BEFORE UPDATE ON public.profiles
+BEFORE INSERT OR UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.protect_profile_privileged_fields();
+
+CREATE OR REPLACE FUNCTION public.protect_verification_request_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL OR public.is_admin_user() THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    NEW.status := 'pending';
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+    NEW.status := OLD.status;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS protect_verification_request_status ON public.verification_requests;
+CREATE TRIGGER protect_verification_request_status
+BEFORE INSERT OR UPDATE ON public.verification_requests
+FOR EACH ROW
+EXECUTE FUNCTION public.protect_verification_request_status();
 
 -- 10) Phone check: server-only (no public enumeration)
 REVOKE EXECUTE ON FUNCTION public.check_phone_available(text) FROM anon;
