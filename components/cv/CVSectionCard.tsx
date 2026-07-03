@@ -25,7 +25,7 @@ export function CVSectionCard({
     >
       <Card className={cn("gap-4", className)}>
         <CardHeader className="pb-0">
-          <CardTitle className="text-base font-medium uppercase tracking-[0.12em] text-fk-plum">
+          <CardTitle className="text-base font-bold uppercase tracking-[0.12em] text-fk-plum">
             {title}
           </CardTitle>
         </CardHeader>
@@ -46,7 +46,7 @@ export function CVField({
 }) {
   return (
     <div>
-      <span className="font-medium text-fk-plum/70">{label}: </span>
+      <span className="font-bold text-fk-plum">{label}: </span>
       <span className="text-fk-body">{value || "N/A"}</span>
     </div>
   );
