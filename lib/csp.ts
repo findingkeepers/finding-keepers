@@ -8,12 +8,14 @@ export function buildContentSecurityPolicy(): ContentSecurityPolicy {
   const isDev = process.env.NODE_ENV === "development";
 
   const value = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
-    `style-src 'self' 'unsafe-inline' 'nonce-${nonce}'`,
+    "default-src 'self' blob:",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+    // No style nonce: it disables unsafe-inline and blocks Sonner's injected <style>.
+    "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "worker-src 'self' blob:",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",

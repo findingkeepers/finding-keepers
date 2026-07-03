@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Cormorant_Garamond, Jost, Mulish } from "next/font/google";
 import { Toaster } from "sonner";
+import "sonner/dist/styles.css";
 import { AuthCallbackRedirect } from "@/components/auth/AuthCallbackRedirect";
 import { SessionBootstrap } from "@/components/auth/SessionBootstrap";
 import { SiteFooter } from "@/components/layout/SiteFooter";
