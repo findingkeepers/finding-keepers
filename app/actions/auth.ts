@@ -13,6 +13,11 @@ import {
 import { isProduction } from "@/lib/auth/cookie-options";
 import { validatePasswordPolicy } from "@/lib/password";
 import { escapeHtml } from "@/lib/html-escape";
+import {
+  enforceRateLimits,
+  getClientIp,
+  RATE_LIMITS,
+} from "@/lib/rate-limit";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
 export async function loginUser({
@@ -25,6 +30,27 @@ export async function loginUser({
   rememberMe: boolean;
 }) {
   const normalizedEmail = email.trim().toLowerCase();
+
+  const rateLimit = await enforceRateLimits([
+    {
+      scope: "login:ip",
+      identifier: await getClientIp(),
+      policy: RATE_LIMITS.login.perIp,
+    },
+    {
+      scope: "login:email",
+      identifier: normalizedEmail,
+      policy: RATE_LIMITS.login.perEmail,
+    },
+  ]);
+
+  if (!rateLimit.allowed) {
+    return {
+      ok: false as const,
+      message: rateLimit.message,
+      needsConfirmation: false,
+    };
+  }
 
   const cookieStore = await cookies();
   if (rememberMe) {
@@ -326,6 +352,18 @@ export async function registerUser({
 }) {
   const normalizedEmail = email.trim().toLowerCase();
 
+  const registerRateLimit = await enforceRateLimits([
+    {
+      scope: "register:ip",
+      identifier: await getClientIp(),
+      policy: RATE_LIMITS.register.perIp,
+    },
+  ]);
+
+  if (!registerRateLimit.allowed) {
+    return { ok: false as const, message: registerRateLimit.message };
+  }
+
   const passwordCheck = await validatePasswordPolicy(password);
   if (!passwordCheck.ok) {
     return { ok: false as const, message: passwordCheck.message };
@@ -433,6 +471,23 @@ export async function resendConfirmationEmail({
     };
   }
 
+  const resendRateLimit = await enforceRateLimits([
+    {
+      scope: "resend:ip",
+      identifier: await getClientIp(),
+      policy: RATE_LIMITS.resendConfirmation.perIp,
+    },
+    {
+      scope: "resend:email",
+      identifier: normalizedEmail,
+      policy: RATE_LIMITS.resendConfirmation.perEmail,
+    },
+  ]);
+
+  if (!resendRateLimit.allowed) {
+    return { ok: false as const, message: resendRateLimit.message };
+  }
+
   const supabase = await createServerSupabaseClient();
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
@@ -499,9 +554,26 @@ function buildPasswordResetEmailHtml({
 }
 
 export async function requestPasswordReset({ email }: { email: string }) {
-  const trimmedEmail = email.trim();
+  const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail) {
     return { ok: false as const, message: "Please enter your email address." };
+  }
+
+  const resetRateLimit = await enforceRateLimits([
+    {
+      scope: "reset:ip",
+      identifier: await getClientIp(),
+      policy: RATE_LIMITS.passwordReset.perIp,
+    },
+    {
+      scope: "reset:email",
+      identifier: trimmedEmail,
+      policy: RATE_LIMITS.passwordReset.perEmail,
+    },
+  ]);
+
+  if (!resetRateLimit.allowed) {
+    return { ok: false as const, message: resetRateLimit.message };
   }
 
   const admin = createAdminSupabaseClient();
