@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
+import { buildContentSecurityPolicy } from "@/lib/csp";
 import { updateSession } from "@/lib/supabase/middleware";
 
 const canonicalHost = new URL(PRODUCTION_APP_URL).hostname;
@@ -21,12 +22,15 @@ function redirectProductionVercelHost(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
+  const csp = buildContentSecurityPolicy();
+
   const canonicalRedirect = redirectProductionVercelHost(request);
   if (canonicalRedirect) {
+    canonicalRedirect.headers.set("Content-Security-Policy", csp.value);
     return canonicalRedirect;
   }
 
-  return updateSession(request);
+  return updateSession(request, csp);
 }
 
 export const config = {

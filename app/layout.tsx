@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { Cormorant_Garamond, Jost, Mulish } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthCallbackRedirect } from "@/components/auth/AuthCallbackRedirect";
@@ -31,11 +32,13 @@ export const metadata: Metadata = {
     "A verified Muslim matrimonial matching platform — helping you find your right fit.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
+
   return (
     <html
       lang="en"

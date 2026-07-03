@@ -5,6 +5,10 @@ import {
   getRememberMeFromCookies,
 } from "@/lib/auth/cookie-options";
 import { getSafeRedirectPath } from "@/lib/auth/safe-redirect";
+import {
+  applyCspRequestHeaders,
+  type ContentSecurityPolicy,
+} from "@/lib/csp";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/browse"];
 const ADMIN_PREFIX = "/fk-admin";
@@ -29,8 +33,31 @@ function isAdminPath(pathname: string) {
   return pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`);
 }
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+function nextWithCsp(request: NextRequest, csp?: ContentSecurityPolicy) {
+  if (!csp) {
+    return NextResponse.next({ request });
+  }
+
+  return NextResponse.next({
+    request: {
+      headers: applyCspRequestHeaders(request, csp),
+    },
+  });
+}
+
+function redirectWithCsp(url: URL, csp?: ContentSecurityPolicy) {
+  const response = NextResponse.redirect(url);
+  if (csp) {
+    response.headers.set("Content-Security-Policy", csp.value);
+  }
+  return response;
+}
+
+export async function updateSession(
+  request: NextRequest,
+  csp?: ContentSecurityPolicy
+) {
+  let supabaseResponse = nextWithCsp(request, csp);
   const pathname = request.nextUrl.pathname;
 
   const supabase = createServerClient(
@@ -51,7 +78,7 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value);
           });
 
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = nextWithCsp(request, csp);
 
           cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(
@@ -78,7 +105,7 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = loginPath;
     redirectUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCsp(redirectUrl, csp);
   }
 
   if (
@@ -92,7 +119,7 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCsp(redirectUrl, csp);
   }
 
   if (user && isAdminPath(pathname) && pathname !== "/fk-admin/login") {
@@ -106,7 +133,7 @@ export async function updateSession(request: NextRequest) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/dashboard";
       redirectUrl.search = "";
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCsp(redirectUrl, csp);
     }
   }
 
@@ -118,7 +145,11 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = next;
     redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCsp(redirectUrl, csp);
+  }
+
+  if (csp) {
+    supabaseResponse.headers.set("Content-Security-Policy", csp.value);
   }
 
   return supabaseResponse;
