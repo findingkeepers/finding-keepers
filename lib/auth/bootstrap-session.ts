@@ -13,6 +13,43 @@ export type BootstrapResult = {
 let cachedResult: BootstrapResult | null = null;
 let inflight: Promise<BootstrapResult> | null = null;
 
+async function syncClientSessionFromServer(): Promise<boolean> {
+  const bootstrapResponse = await fetch("/api/auth/session/bootstrap", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!bootstrapResponse.ok) {
+    return false;
+  }
+
+  const payload = (await bootstrapResponse.json()) as {
+    ok?: boolean;
+    session: {
+      access_token: string;
+      refresh_token: string;
+      expires_in?: number;
+      expires_at?: number;
+      token_type?: string;
+    } | null;
+  };
+
+  if (!payload.session) {
+    return false;
+  }
+
+  const supabase = getBrowserSupabaseClient();
+  const { error } = await supabase.auth.setSession(payload.session);
+
+  if (error) {
+    console.error("setSession error:", error);
+    return false;
+  }
+
+  return true;
+}
+
 async function runBootstrap(): Promise<BootstrapResult> {
   try {
     const response = await fetch("/api/auth/session", {
@@ -29,17 +66,11 @@ async function runBootstrap(): Promise<BootstrapResult> {
     }
 
     const payload = (await response.json()) as {
-      session: {
-        access_token: string;
-        refresh_token: string;
-        expires_in?: number;
-        expires_at?: number;
-        token_type?: string;
-      } | null;
+      authenticated: boolean;
       rememberMe: boolean;
     };
 
-    if (!payload.session) {
+    if (!payload.authenticated) {
       return { authenticated: false };
     }
 
@@ -52,11 +83,8 @@ async function runBootstrap(): Promise<BootstrapResult> {
       return { authenticated: false, tabExpired: true };
     }
 
-    const supabase = getBrowserSupabaseClient();
-    const { error } = await supabase.auth.setSession(payload.session);
-
-    if (error) {
-      console.error("setSession error:", error);
+    const synced = await syncClientSessionFromServer();
+    if (!synced) {
       return { authenticated: false };
     }
 

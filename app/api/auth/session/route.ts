@@ -1,44 +1,31 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { REMEMBER_ME_COOKIE } from "@/lib/auth/constants";
+import {
+  getAuthenticatedServerSession,
+  SESSION_NO_STORE_HEADERS,
+} from "@/lib/auth/server-session";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const rememberMe = cookieStore.get(REMEMBER_ME_COOKIE)?.value === "1";
-  const supabase = await createServerSupabaseClient();
+  const auth = await getAuthenticatedServerSession();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ user: null, session: null, rememberMe }, { status: 401 });
+  if (!auth.ok) {
+    return NextResponse.json(
+      { authenticated: false, rememberMe: auth.rememberMe, user: null },
+      { status: 401, headers: SESSION_NO_STORE_HEADERS }
+    );
   }
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const { user, rememberMe } = auth;
 
-  if (!session) {
-    return NextResponse.json({ user: null, session: null, rememberMe }, { status: 401 });
-  }
-
-  return NextResponse.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      email_confirmed_at: user.email_confirmed_at,
-      user_metadata: user.user_metadata,
+  return NextResponse.json(
+    {
+      authenticated: true,
+      rememberMe,
+      user: {
+        id: user.id,
+        email: user.email,
+        email_confirmed_at: user.email_confirmed_at,
+      },
     },
-    session: {
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-      expires_in: session.expires_in,
-      expires_at: session.expires_at,
-      token_type: session.token_type,
-    },
-    rememberMe,
-  });
+    { headers: SESSION_NO_STORE_HEADERS }
+  );
 }

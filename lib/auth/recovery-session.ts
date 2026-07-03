@@ -32,12 +32,30 @@ export async function syncServerRecoverySession(): Promise<boolean> {
     return false;
   }
 
-  const payload = await sessionResponse.json();
-  if (!payload.session) {
+  const statusPayload = (await sessionResponse.json()) as {
+    authenticated?: boolean;
+  };
+
+  if (!statusPayload.authenticated) {
     return false;
   }
 
-  const { error } = await supabase.auth.setSession(payload.session);
+  const bootstrapResponse = await fetch("/api/auth/session/bootstrap", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!bootstrapResponse.ok) {
+    return false;
+  }
+
+  const bootstrapPayload = await bootstrapResponse.json();
+  if (!bootstrapPayload.session) {
+    return false;
+  }
+
+  const { error } = await supabase.auth.setSession(bootstrapPayload.session);
   if (error) {
     return false;
   }
