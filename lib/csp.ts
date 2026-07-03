@@ -9,7 +9,8 @@ export function buildContentSecurityPolicy(): ContentSecurityPolicy {
 
   const value = [
     "default-src 'self' blob:",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+    // strict-dynamic disables host allowlists and can block Next.js client chunks.
+    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
     // No style nonce: it disables unsafe-inline and blocks Sonner's injected <style>.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
