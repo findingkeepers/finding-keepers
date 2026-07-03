@@ -192,13 +192,17 @@ type AuthActionResult =
   | { ok: true; message: string }
   | { ok: false; message: string; pendingConfirmation?: boolean };
 
+type SignupLinkParams = {
+  type: "signup";
+  email: string;
+  options?: { redirectTo?: string };
+};
+
 async function sendSignupConfirmationEmail({
   email,
-  password,
   fullName,
 }: {
   email: string;
-  password: string;
   fullName?: string;
 }): Promise<AuthActionResult> {
   const admin = createAdminSupabaseClient();
@@ -217,11 +221,14 @@ async function sendSignupConfirmationEmail({
     await admin.auth.admin.generateLink({
       type: "signup",
       email,
-      password,
       options: { redirectTo },
-    });
+    } as SignupLinkParams as Parameters<
+      typeof admin.auth.admin.generateLink
+    >[0]);
 
-  if (linkError || !linkData?.properties?.action_link) {
+  const hashedToken = linkData?.properties?.hashed_token;
+
+  if (linkError || !hashedToken) {
     console.error("Generate signup link error:", linkError);
 
     return {
@@ -230,6 +237,8 @@ async function sendSignupConfirmationEmail({
         "If an account exists for this email, a confirmation link has been sent.",
     };
   }
+
+  const confirmationUrl = `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(hashedToken)}&type=signup&next=/login`;
 
   const displayName =
     fullName?.trim() ||
@@ -241,7 +250,7 @@ async function sendSignupConfirmationEmail({
     subject: "Confirm your Finding Keepers account",
     html: buildSignupConfirmationEmailHtml({
       fullName: displayName,
-      confirmationUrl: linkData.properties.action_link,
+      confirmationUrl,
     }),
   });
 
@@ -398,7 +407,6 @@ export async function registerUser({
 
   const emailResult = await sendSignupConfirmationEmail({
     email: normalizedEmail,
-    password,
     fullName: full_name,
   });
 
@@ -416,14 +424,45 @@ export async function resendConfirmationEmail({
   email: string;
   password: string;
 }) {
-  if (!email?.trim() || !password) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail || !password) {
     return {
       ok: false as const,
       message: "Enter your email and password to resend the confirmation link.",
     };
   }
 
-  return sendSignupConfirmationEmail({ email: email.trim(), password });
+  const supabase = await createServerSupabaseClient();
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
+
+  await supabase.auth.signOut();
+
+  if (!signInError) {
+    return {
+      ok: false as const,
+      message:
+        "This email is already confirmed. You can log in with your password.",
+    };
+  }
+
+  const errorMessage = signInError.message.toLowerCase();
+  const emailNotConfirmed =
+    errorMessage.includes("email not confirmed") ||
+    errorMessage.includes("not confirmed");
+
+  if (!emailNotConfirmed) {
+    return {
+      ok: false as const,
+      message:
+        "Could not verify your credentials. Check your email and password, then try again.",
+    };
+  }
+
+  return sendSignupConfirmationEmail({ email: normalizedEmail });
 }
 
 function buildPasswordResetEmailHtml({
