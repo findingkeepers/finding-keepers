@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { checkPhoneAvailable, registerUser } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { AuthCard } from '@/components/layout/AuthCard';
@@ -110,10 +112,9 @@ export default function RegisterPage() {
 
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             className="h-11 rounded-xl"
             required
             value={password}
@@ -124,7 +125,7 @@ export default function RegisterPage() {
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <Input id="confirmPassword" name="confirmPassword" type="password" className="h-11 rounded-xl" required />
+          <PasswordInput id="confirmPassword" name="confirmPassword" className="h-11 rounded-xl" required />
         </div>
 
         <div className="space-y-2">
@@ -138,7 +139,7 @@ export default function RegisterPage() {
 
         <div className="space-y-2">
           <Label htmlFor="phone">Phone Number</Label>
-          <Input id="phone" name="phone" type="tel" placeholder="+852 XXXX XXXX" className="h-11 rounded-xl" required />
+          <PhoneInput id="phone" name="phone" placeholder="+852 XXXX XXXX" className="h-11 rounded-xl" required />
         </div>
 
         <div className="space-y-2">

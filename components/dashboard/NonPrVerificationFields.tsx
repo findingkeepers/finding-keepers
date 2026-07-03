@@ -1,5 +1,6 @@
 import { OtherSpecifyField } from "@/components/cv/OtherSpecifyField";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
@@ -130,13 +131,12 @@ export function NonPrVerificationFields({
 
         <div className="space-y-2">
           <Label htmlFor="referral-phone">Referral Phone No.</Label>
-          <Input
+          <PhoneInput
             id="referral-phone"
-            type="tel"
             value={form.referralPhone}
             onChange={(e) =>
               onChange({
-                referralPhone: e.target.value.replace(/[^\d+\s-]/g, ""),
+                referralPhone: e.target.value,
               })
             }
             placeholder="+852 XXXX XXXX"

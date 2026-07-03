@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
@@ -746,7 +747,7 @@ export default function CVBuilder() {
           </div>
           <div className="space-y-2"><Label>Wali’s Name</Label><Input value={formData.waliName} onChange={(e) => handleChange('waliName', e.target.value)} /></div>
           <div className="space-y-2"><Label>Wali’s HKID / Passport No.</Label><Input value={formData.waliHKID} onChange={(e) => handleChange('waliHKID', e.target.value)} /></div>
-          <div className="space-y-2"><Label>Wali’s Phone No.</Label><Input value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} /></div>
+          <div className="space-y-2"><Label>Wali’s Phone No.</Label><PhoneInput value={formData.waliPhone} onChange={(e) => handleChange('waliPhone', e.target.value)} className="h-11 rounded-xl" /></div>
           <div className="space-y-2"><Label>Wali’s Email</Label><Input type="email" value={formData.waliEmail} onChange={(e) => handleChange('waliEmail', e.target.value)} /></div>
           <div className="space-y-2"><Label>Wali’s Home Address</Label><Textarea value={formData.waliAddress} onChange={(e) => handleChange('waliAddress', e.target.value)} rows={3} /></div>
         </>

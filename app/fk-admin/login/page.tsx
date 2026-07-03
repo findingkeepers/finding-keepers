@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { toast } from 'sonner';
@@ -77,7 +78,7 @@ export default function AdminLoginPage() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" className="h-11 rounded-xl" required />
+          <PasswordInput id="password" name="password" className="h-11 rounded-xl" required />
         </div>
         <Button type="submit" variant="premium" className="h-11 w-full rounded-xl" disabled={loading}>
           {loading ? "Logging in..." : "Login"}

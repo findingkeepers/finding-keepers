@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { markTabSessionActive } from '@/lib/supabase/browser';
 import { syncServerRecoverySession } from '@/lib/auth/recovery-session';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { PasswordStrength } from '@/components/ui/password-strength';
@@ -237,10 +237,9 @@ function ResetPasswordContent() {
 
         <div className="space-y-2">
           <Label htmlFor="password">New Password</Label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             className="h-11 rounded-xl"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -251,10 +250,9 @@ function ResetPasswordContent() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="confirmPassword">Confirm Password</Label>
-          <Input
+          <PasswordInput
             id="confirmPassword"
             name="confirmPassword"
-            type="password"
             className="h-11 rounded-xl"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

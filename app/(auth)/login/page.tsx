@@ -12,6 +12,7 @@ import {
 import { getSafeRedirectPath } from '@/lib/auth/safe-redirect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { toast } from 'sonner';
@@ -148,10 +149,9 @@ function LoginForm() {
               Forgot password?
             </Link>
           </div>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             className="h-11 rounded-xl"
             required
             value={password}
