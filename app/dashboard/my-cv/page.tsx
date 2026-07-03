@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
+import { createProfilePhotoSignedUrl } from '@/lib/profile-photo';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -40,7 +41,14 @@ export default function MyCVPage() {
         .single();
 
       if (myCV) {
-        setCv(myCV);
+        const signedPhotoUrl = await createProfilePhotoSignedUrl(
+          supabase,
+          myCV.photo_url
+        );
+        setCv({
+          ...myCV,
+          photo_url: signedPhotoUrl,
+        });
       }
       setLoading(false);
     };

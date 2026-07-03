@@ -3,17 +3,9 @@
 import { pdf } from "@react-pdf/renderer";
 import { CVPdf } from "@/components/CVPdf";
 import { supabase } from "@/lib/supabase";
+import { getProfilePhotoStoragePath } from "@/lib/profile-photo";
 
 const PDF_TIMEOUT_MS = 20_000;
-
-function getStoragePathFromPublicUrl(url: string): string | null {
-  const marker = "/profile-photos/";
-  const index = url.indexOf(marker);
-  if (index === -1) return null;
-  return decodeURIComponent(
-    url.slice(index + marker.length).split("?")[0] || ""
-  );
-}
 
 function blobToJpegDataUrl(blob: Blob, maxDimension = 480): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -55,7 +47,7 @@ async function resolvePhotoDataUrl(photoUrl: string): Promise<string | null> {
   if (!photoUrl) return null;
   if (photoUrl.startsWith("data:")) return photoUrl;
 
-  const storagePath = getStoragePathFromPublicUrl(photoUrl);
+  const storagePath = getProfilePhotoStoragePath(photoUrl);
 
   if (storagePath) {
     const { data, error } = await supabase.storage

@@ -16,6 +16,10 @@ import { toast } from 'sonner';
 import { allocateUniqueShortId } from '@/app/actions/cv';
 import { getUserVerificationHkid } from '@/app/actions/verification';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
+import {
+  createProfilePhotoSignedUrl,
+  getProfilePhotoStoragePath,
+} from '@/lib/profile-photo';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import {
@@ -55,9 +59,37 @@ export default function CVBuilder() {
   const userIdRef = useRef<string | null>(null);
 
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolvePhotoPreview() {
+      if (!formData.photoUrl) {
+        if (!cancelled) {
+          setPhotoPreviewUrl('');
+        }
+        return;
+      }
+
+      const signedUrl = await createProfilePhotoSignedUrl(
+        supabase,
+        formData.photoUrl
+      );
+
+      if (!cancelled) {
+        setPhotoPreviewUrl(signedUrl || '');
+      }
+    }
+
+    void resolvePhotoPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.photoUrl]);
   // Load profile + existing CV (registration gender is source of truth)
   useEffect(() => {
     const loadForm = async () => {
@@ -258,8 +290,7 @@ export default function CVBuilder() {
       const { error } = await supabase.storage.from('profile-photos').upload(filePath, file);
       if (error) throw error;
 
-      const { data: publicUrlData } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
-      handleChange('photoUrl', publicUrlData.publicUrl);
+      handleChange('photoUrl', filePath);
       toast.success("Photo uploaded successfully!");
     } catch (error: any) {
       toast.error("Failed to upload photo");
@@ -344,11 +375,13 @@ export default function CVBuilder() {
         .update({ full_name: payload.fullName.trim() })
         .eq('id', user.id);
 
+      const photoPath = getProfilePhotoStoragePath(payload.photoUrl);
+
       if (isEditing && existingCVId) {
         const { error } = await supabase.from('cvs').update({
           short_id: shortID,
           data: payload,
-          photo_url: payload.photoUrl || null,
+          photo_url: photoPath,
         }).eq('id', existingCVId);
         if (error) throw error;
       } else {
@@ -356,7 +389,7 @@ export default function CVBuilder() {
           user_id: user.id,
           short_id: shortID,
           data: payload,
-          photo_url: payload.photoUrl || null,
+          photo_url: photoPath,
         });
         if (error) throw error;
       }
@@ -642,7 +675,7 @@ export default function CVBuilder() {
       <CVPreview
         data={formData}
         shortId={formData.shortID || undefined}
-        photoUrl={formData.photoUrl || undefined}
+        photoUrl={photoPreviewUrl || undefined}
       />
     </div>
   );

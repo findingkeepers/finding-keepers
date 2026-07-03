@@ -5,6 +5,7 @@ import { assertProfileVerified } from "@/lib/auth/guards";
 import { gendersAreOpposite } from "@/lib/gender";
 import { pickBrowseListData, redactCvDataForBrowse } from "@/lib/cv-browse";
 import { shouldShowWaliOnBrowseProfile } from "@/lib/cv-privacy";
+import { createProfilePhotoSignedUrl } from "@/lib/profile-photo";
 
 export type BrowsableProfileSummary = {
   short_id: string;
@@ -40,24 +41,26 @@ export async function getBrowsableProfiles() {
     return { ok: false as const, message: "Could not load profiles" };
   }
 
-  const profiles: BrowsableProfileSummary[] = (cvs ?? [])
-    .filter((cv) =>
-      gendersAreOpposite(
-        viewerProfile?.gender,
-        (cv.data as Record<string, string>)?.gender
-      )
+  const filteredCvs = (cvs ?? []).filter((cv) =>
+    gendersAreOpposite(
+      viewerProfile?.gender,
+      (cv.data as Record<string, string>)?.gender
     )
-    .map((cv) => {
+  );
+
+  const profiles: BrowsableProfileSummary[] = await Promise.all(
+    filteredCvs.map(async (cv) => {
       const listData = pickBrowseListData(
         (cv.data as Record<string, string>) || {}
       );
 
       return {
         short_id: cv.short_id,
-        photo_url: cv.photo_url,
+        photo_url: await createProfilePhotoSignedUrl(supabase, cv.photo_url),
         ...listData,
       };
-    });
+    })
+  );
 
   return { ok: true as const, profiles };
 }
@@ -111,7 +114,7 @@ export async function getBrowsableProfile(shortId: string) {
     ok: true as const,
     cv: {
       short_id: cv.short_id,
-      photo_url: cv.photo_url,
+      photo_url: await createProfilePhotoSignedUrl(supabase, cv.photo_url),
       data: redactCvDataForBrowse(cvData, {
         showWali: shouldShowWaliOnBrowseProfile(cvData),
       }),

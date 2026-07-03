@@ -17,6 +17,7 @@ import {
   type NonPrVerificationForm,
 } from "@/lib/non-pr-verification";
 import { clearCvDraft } from "@/lib/cv-draft";
+import { getProfilePhotoStoragePath } from "@/lib/profile-photo";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -336,11 +337,9 @@ export default function Dashboard() {
         .maybeSingle();
 
       if (existingCV?.photo_url) {
-        const urlParts = existingCV.photo_url.split("/profile-photos/");
-        if (urlParts.length > 1) {
-          await supabase.storage
-            .from("profile-photos")
-            .remove([`profile-photos/${urlParts[1]}`]);
+        const photoPath = getProfilePhotoStoragePath(existingCV.photo_url);
+        if (photoPath) {
+          await supabase.storage.from("profile-photos").remove([photoPath]);
         }
       }
 
