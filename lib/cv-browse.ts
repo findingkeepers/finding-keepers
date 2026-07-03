@@ -1,14 +1,16 @@
-const BROWSE_HIDDEN_FIELDS = new Set([
+const BROWSE_ALWAYS_HIDDEN_FIELDS = new Set([
   "hkidNumber",
-  "waliInvolvement",
-  "waliReason",
   "waliHKID",
   "waliAddress",
-  "waliEmail",
-  "waliPhone",
+  "showWaliOnProfile",
+]);
+
+const WALI_CONTACT_FIELDS = new Set([
   "waliName",
   "waliRelationship",
-  "showWaliOnProfile",
+  "waliRelationshipOther",
+  "waliPhone",
+  "waliEmail",
 ]);
 
 export function redactCvDataForBrowse(
@@ -19,16 +21,11 @@ export function redactCvDataForBrowse(
   const redacted: Record<string, string> = {};
 
   for (const [key, value] of Object.entries(data)) {
-    if (BROWSE_HIDDEN_FIELDS.has(key)) {
-      if (
-        showWali &&
-        (key === "waliName" ||
-          key === "waliRelationship" ||
-          key === "waliPhone" ||
-          key === "waliEmail")
-      ) {
-        redacted[key] = value;
-      }
+    if (BROWSE_ALWAYS_HIDDEN_FIELDS.has(key)) {
+      continue;
+    }
+
+    if (WALI_CONTACT_FIELDS.has(key) && !showWali) {
       continue;
     }
 
