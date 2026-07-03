@@ -54,20 +54,6 @@ export const RATE_LIMITS = {
       windowSeconds: 60 * 60,
     },
   },
-  matchRequest: {
-    perUser: {
-      label: "match request",
-      maxRequests: 10,
-      windowSeconds: 60 * 60,
-    },
-  },
-  matchRespond: {
-    perUser: {
-      label: "match response",
-      maxRequests: 30,
-      windowSeconds: 60 * 60,
-    },
-  },
 } as const;
 
 export type RateLimitCheck =

@@ -18,7 +18,6 @@ import { getMatchDirection } from "@/lib/match-request";
 import { assertAdmin, assertProfileVerified } from "@/lib/auth/guards";
 import { gendersAreOpposite } from "@/lib/gender";
 import { escapeHtml } from "@/lib/html-escape";
-import { enforceRateLimits, RATE_LIMITS } from "@/lib/rate-limit";
 
 async function expireStalePendingMatchRequests(
   admin: NonNullable<ReturnType<typeof createAdminSupabaseClient>>
@@ -217,21 +216,8 @@ export async function requestMatch({
       return { success: false, message: auth.message };
     }
 
-    const user = auth.user;
-
-    const requestRateLimit = await enforceRateLimits([
-      {
-        scope: "match-request:user",
-        identifier: user.id,
-        policy: RATE_LIMITS.matchRequest.perUser,
-      },
-    ]);
-
-    if (!requestRateLimit.allowed) {
-      return { success: false, message: requestRateLimit.message };
-    }
-
     const supabase = await createServerSupabaseClient();
+    const user = auth.user;
 
     const admin = createAdminSupabaseClient();
     if (admin) {
@@ -448,21 +434,8 @@ export async function respondToMatchRequest({
       return { success: false, message: auth.message };
     }
 
-    const user = auth.user;
-
-    const respondRateLimit = await enforceRateLimits([
-      {
-        scope: "match-respond:user",
-        identifier: user.id,
-        policy: RATE_LIMITS.matchRespond.perUser,
-      },
-    ]);
-
-    if (!respondRateLimit.allowed) {
-      return { success: false, message: respondRateLimit.message };
-    }
-
     const supabase = await createServerSupabaseClient();
+    const user = auth.user;
 
     const { data: myCV } = await supabase
       .from("cvs")
