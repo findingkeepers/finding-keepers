@@ -19,6 +19,23 @@ interface CV {
   photo_url: string | null;
   data: Record<string, string>;
   created_at: string;
+  profiles:
+    | {
+        gender: string | null;
+      }
+    | {
+        gender: string | null;
+      }[]
+    | null;
+}
+
+function getProfileGender(cv: CV) {
+  if (!cv.profiles) {
+    return cv.data?.gender ?? null;
+  }
+
+  const profile = Array.isArray(cv.profiles) ? cv.profiles[0] : cv.profiles;
+  return profile?.gender ?? cv.data?.gender ?? null;
 }
 
 export default function AdminCVsPage() {
@@ -34,12 +51,12 @@ export default function AdminCVsPage() {
     const fetchAllCVs = async () => {
       const { data: cvData, error } = await supabase
         .from('cvs')
-        .select('id, short_id, photo_url, data, created_at')
+        .select('id, short_id, photo_url, data, created_at, profiles(gender)')
         .order('created_at', { ascending: false });
 
       if (!error && cvData) {
-        setCvs(cvData);
-        setFilteredCVs(cvData);
+        setCvs(cvData as CV[]);
+        setFilteredCVs(cvData as CV[]);
       }
       setLoading(false);
     };
@@ -59,8 +76,9 @@ export default function AdminCVsPage() {
     }
 
     if (genderFilter) {
-      result = result.filter(cv =>
-        cv.data?.gender?.toLowerCase() === genderFilter.toLowerCase()
+      result = result.filter(
+        (cv) =>
+          getProfileGender(cv)?.toLowerCase() === genderFilter.toLowerCase()
       );
     }
 
@@ -172,7 +190,9 @@ export default function AdminCVsPage() {
                     {cv.short_id}
                   </DataTableCell>
                   <DataTableCell>{cv.data?.fullName}</DataTableCell>
-                  <DataTableCell className="capitalize">{cv.data?.gender}</DataTableCell>
+                  <DataTableCell className="capitalize">
+                    {getProfileGender(cv) || 'N/A'}
+                  </DataTableCell>
                   <DataTableCell>{cv.data?.occupation || 'N/A'}</DataTableCell>
                   <DataTableCell>
                     <Button

@@ -20,7 +20,13 @@ import {
   countsTowardActiveQuota,
   MAX_ACTIVE_MATCH_REQUESTS,
 } from '@/lib/match-limits';
-import { gendersAreOpposite } from '@/lib/gender';
+import {
+  formatPendingExpiryHint,
+  getEffectiveMatchStatus,
+  isPendingExpired,
+} from '@/lib/match-expiry';
+import { isMatchRecipient, isMatchRequester } from '@/lib/match-request';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { User } from 'lucide-react';
 
 
@@ -33,9 +39,13 @@ export default function ViewProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  const [userGender, setUserGender] = useState<string | null>(null);
+  const [responding, setResponding] = useState(false);
+  const [canRequestMatch, setCanRequestMatch] = useState(false);
   const [matchBlockedReason, setMatchBlockedReason] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
+  const [pendingIncomingRequestId, setPendingIncomingRequestId] = useState<string | null>(null);
+  const [pairMatchStatus, setPairMatchStatus] = useState<string | null>(null);
+  const [pendingExpiryHint, setPendingExpiryHint] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCV = async () => {
@@ -54,7 +64,7 @@ export default function ViewProfilePage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('gender, verification_status')
+        .select('verification_status')
         .eq('id', user.id)
         .single();
 
@@ -62,8 +72,6 @@ export default function ViewProfilePage() {
         router.push('/dashboard');
         return;
       }
-
-      setUserGender(profile.gender);
 
       const browseResult = await getBrowsableProfile(short_id);
       if (!browseResult.ok) {
@@ -74,6 +82,12 @@ export default function ViewProfilePage() {
 
       const cvData = browseResult.cv;
       setCv(cvData);
+      setCanRequestMatch(browseResult.canRequestMatch ?? false);
+
+      if (!browseResult.canRequestMatch) {
+        setLoading(false);
+        return;
+      }
 
       await expireStaleMatchRequests();
 
@@ -90,7 +104,9 @@ export default function ViewProfilePage() {
 
           const { data: existing } = await supabase
             .from('match_requests')
-            .select('id, status, created_at')
+            .select(
+              'id, status, created_at, requested_by_short_id, male_short_id, female_short_id'
+            )
             .or(
               `and(male_short_id.eq.${current},female_short_id.eq.${viewed}),` +
               `and(male_short_id.eq.${viewed},female_short_id.eq.${current})`
@@ -104,14 +120,38 @@ export default function ViewProfilePage() {
             setMatchBlockedReason(
               'This match request was declined and cannot be sent again.'
             );
-          } else if (
-            latestPairRequest &&
-            blocksNewRequestToPair(
+          } else if (latestPairRequest) {
+            const iAmRequester = isMatchRequester(latestPairRequest, current);
+            const iAmRecipient = isMatchRecipient(latestPairRequest, current);
+            const pairBlocksNewRequest = blocksNewRequestToPair(
               latestPairRequest.status,
               latestPairRequest.created_at
-            )
-          ) {
-            setRequestSent(true);
+            );
+
+            if (
+              iAmRecipient &&
+              latestPairRequest.status === 'pending' &&
+              !isPendingExpired(latestPairRequest.created_at)
+            ) {
+              setPendingIncomingRequestId(latestPairRequest.id);
+            } else if (iAmRequester && pairBlocksNewRequest) {
+              setRequestSent(true);
+              if (
+                latestPairRequest.status === 'pending' &&
+                !isPendingExpired(latestPairRequest.created_at)
+              ) {
+                setPendingExpiryHint(
+                  formatPendingExpiryHint(latestPairRequest.created_at)
+                );
+              }
+            } else if (iAmRecipient && pairBlocksNewRequest) {
+              setPairMatchStatus(
+                getEffectiveMatchStatus(
+                  latestPairRequest.status,
+                  latestPairRequest.created_at
+                )
+              );
+            }
           }
 
           const { data: activeRequests } = await supabase
@@ -127,6 +167,7 @@ export default function ViewProfilePage() {
 
           const hasActiveRequestToThisProfile =
             latestPairRequest &&
+            isMatchRequester(latestPairRequest, current) &&
             blocksNewRequestToPair(
               latestPairRequest.status,
               latestPairRequest.created_at
@@ -151,8 +192,54 @@ export default function ViewProfilePage() {
     fetchCV();
   }, [short_id, router]);
 
+  const handleRespond = async (decision: 'approve' | 'reject') => {
+    if (!pendingIncomingRequestId) return;
+
+    setResponding(true);
+
+    try {
+      const response = await fetch('/api/match/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          requestId: pendingIncomingRequestId,
+          decision,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        setPendingIncomingRequestId(null);
+        if (decision === 'reject') {
+          setMatchBlockedReason(
+            'This match request was declined and cannot be sent again.'
+          );
+        } else {
+          setPairMatchStatus('approved');
+        }
+      } else {
+        toast.error(result.message || 'Could not update match request');
+      }
+    } catch {
+      toast.error('Could not update match request. Please try again.');
+    } finally {
+      setResponding(false);
+    }
+  };
+
   const handleRequestMatch = async () => {
-    if (!cv || !userGender || requestSent || matchBlockedReason) return;
+    if (
+      !cv ||
+      !canRequestMatch ||
+      requestSent ||
+      matchBlockedReason ||
+      pendingIncomingRequestId
+    ) {
+      return;
+    }
 
     setSending(true);
 
@@ -222,7 +309,6 @@ export default function ViewProfilePage() {
   }
 
   const data = cv.data || {};
-  const isOppositeGender = gendersAreOpposite(userGender, data.gender);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 md:px-10">
@@ -252,24 +338,65 @@ export default function ViewProfilePage() {
               </div>
             )}
 
-            {isOppositeGender && (
+            {canRequestMatch && (
               <div className="space-y-2">
-                <Button
-                  variant="premium"
-                  className="h-11 w-full rounded-xl"
-                  onClick={handleRequestMatch}
-                  disabled={sending || requestSent || Boolean(matchBlockedReason)}
-                >
-                  {requestSent
-                    ? "Request Sent"
-                    : matchBlockedReason
-                      ? "Request Unavailable"
-                      : sending
-                        ? "Sending Request..."
-                        : "Request Match"}
-                </Button>
+                {pendingIncomingRequestId ? (
+                  <div className="space-y-2">
+                    <p className="text-center text-sm font-medium text-fk-plum">
+                      You received a match request
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="premium"
+                        className="h-11 rounded-xl"
+                        disabled={responding}
+                        onClick={() => handleRespond('approve')}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-11 rounded-xl"
+                        disabled={responding}
+                        onClick={() => handleRespond('reject')}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ) : pairMatchStatus ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <StatusBadge status={pairMatchStatus} />
+                    <p className="text-center text-xs text-muted-foreground">
+                      Match request status for this profile
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    variant="premium"
+                    className="h-11 w-full rounded-xl"
+                    onClick={handleRequestMatch}
+                    disabled={
+                      sending ||
+                      requestSent ||
+                      Boolean(matchBlockedReason) ||
+                      Boolean(pendingIncomingRequestId)
+                    }
+                  >
+                    {requestSent
+                      ? "Request Sent"
+                      : matchBlockedReason
+                        ? "Request Unavailable"
+                        : sending
+                          ? "Sending Request..."
+                          : "Request Match"}
+                  </Button>
+                )}
                 {matchBlockedReason && (
                   <p className="text-xs text-muted-foreground">{matchBlockedReason}</p>
+                )}
+                {requestSent && pendingExpiryHint && (
+                  <p className="text-xs text-muted-foreground">{pendingExpiryHint}</p>
                 )}
               </div>
             )}

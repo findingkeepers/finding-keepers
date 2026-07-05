@@ -35,6 +35,7 @@ export default function Dashboard() {
   );
   const [isPermanentResident, setIsPermanentResident] = useState(true);
   const [hasCompletedCV, setHasCompletedCV] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userName, setUserName] = useState("");
 
   const { onMenuClick } = useDashboardMenu();
@@ -48,11 +49,14 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, verification_status, is_permanent_resident")
+        .select(
+          "full_name, verification_status, is_permanent_resident, role"
+        )
         .eq("id", user.id)
         .maybeSingle();
 
       if (profile?.full_name) setUserName(profile.full_name);
+      setIsAdmin(profile?.role === "admin");
 
       const metadataPr = user.user_metadata?.is_permanent_resident;
       const isPr =
@@ -151,7 +155,7 @@ export default function Dashboard() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("verification_status")
+        .select("verification_status, gender")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -167,7 +171,10 @@ export default function Dashboard() {
           id: user.id,
           email: user.email || "",
           full_name: user.user_metadata?.full_name || "",
-          gender: user.user_metadata?.gender || "male",
+          gender:
+            profile?.gender ||
+            user.user_metadata?.gender ||
+            "male",
           verification_status: "unverified",
         },
         { onConflict: "id" }
@@ -385,6 +392,7 @@ export default function Dashboard() {
     <VerifiedDashboard
       userName={userName}
       hasCompletedCV={hasCompletedCV}
+      isAdmin={isAdmin}
       onDeleteCV={handleDeleteCV}
       onMenuClick={onMenuClick}
     />

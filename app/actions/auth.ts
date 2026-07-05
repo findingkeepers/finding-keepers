@@ -672,7 +672,7 @@ export async function sendVerificationPendingEmail({
           Thank you for submitting your verification documents. Our admin team is reviewing your application.
         </p>
         <p style="font-size: 15px; line-height: 1.6; color: #5a4a55;">
-          You will receive another email once your account has been approved. Reviews typically take 24–48 hours.
+          You will receive another email once verification is complete. Reviews typically take 24–48 hours.
         </p>
         <a href="${appUrl}/dashboard" style="display: inline-block; margin-top: 20px; background: #4a2545; color: #f7f2ec; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: 600;">
           View dashboard

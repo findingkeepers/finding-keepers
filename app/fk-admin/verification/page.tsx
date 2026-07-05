@@ -40,6 +40,7 @@ interface VerificationRequest {
     full_name: string;
     email: string;
     phone: string;
+    gender: string | null;
     is_permanent_resident: boolean | null;
   };
 }
@@ -77,6 +78,7 @@ export default function AdminVerifications() {
           full_name,
           email,
           phone,
+          gender,
           is_permanent_resident
         )
       `)
@@ -205,6 +207,7 @@ export default function AdminVerifications() {
             <tr>
               <DataTableCell header>Submitted</DataTableCell>
               <DataTableCell header>Name</DataTableCell>
+              <DataTableCell header>Gender</DataTableCell>
               <DataTableCell header>Email</DataTableCell>
               <DataTableCell header>Phone</DataTableCell>
               <DataTableCell header>HKID</DataTableCell>
@@ -217,7 +220,7 @@ export default function AdminVerifications() {
           <tbody>
             {filteredRequests.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                <td colSpan={10} className="p-8 text-center text-muted-foreground">
                   No verification requests found.
                 </td>
               </tr>
@@ -234,6 +237,9 @@ export default function AdminVerifications() {
                         {new Date(req.submitted_at).toLocaleString()}
                       </DataTableCell>
                       <DataTableCell className="font-medium">{req.profiles?.full_name || 'N/A'}</DataTableCell>
+                      <DataTableCell className="capitalize text-sm">
+                        {req.profiles?.gender || 'N/A'}
+                      </DataTableCell>
                       <DataTableCell className="text-sm">{req.profiles?.email}</DataTableCell>
                       <DataTableCell className="text-sm">{req.profiles?.phone || 'N/A'}</DataTableCell>
                       <DataTableCell className="font-mono text-sm">{req.hkid_number}</DataTableCell>
@@ -290,7 +296,7 @@ export default function AdminVerifications() {
                     </DataTableRow>
                     {showNonPrDetails && (
                       <tr className="border-b border-border/60 bg-amber-50/40">
-                        <td colSpan={9} className="px-6 py-4 text-sm text-muted-foreground">
+                        <td colSpan={10} className="px-6 py-4 text-sm text-muted-foreground">
                           <p className="mb-2 font-medium text-fk-plum">Non-PR extra verification</p>
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                             <p>

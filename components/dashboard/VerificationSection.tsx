@@ -91,7 +91,7 @@ export function VerificationSection({
               </p>
               <p className="mt-2 text-sm text-amber-700">
                 Our team typically reviews within 24–48 hours. You will receive an
-                email once a decision is made.
+                email once verification is complete.
               </p>
             </CardContent>
           </Card>

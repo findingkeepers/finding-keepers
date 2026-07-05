@@ -8,6 +8,7 @@ import { ActionCard } from "./ActionCard";
 type VerifiedDashboardProps = {
   userName: string;
   hasCompletedCV: boolean;
+  isAdmin?: boolean;
   onDeleteCV: () => void;
   onMenuClick: () => void;
 };
@@ -15,9 +16,11 @@ type VerifiedDashboardProps = {
 export function VerifiedDashboard({
   userName,
   hasCompletedCV,
+  isAdmin = false,
   onDeleteCV,
   onMenuClick,
 }: VerifiedDashboardProps) {
+  const canBrowse = hasCompletedCV || isAdmin;
   const router = useRouter();
 
   return (
@@ -28,7 +31,9 @@ export function VerifiedDashboard({
         subtitle={
           hasCompletedCV
             ? "Your profile is complete. Browse matches or manage your CV."
-            : "Create your marriage profile to start browsing."
+            : isAdmin
+              ? "Browse all member profiles from your dashboard."
+              : "Create your marriage profile to start browsing."
         }
         onMenuClick={onMenuClick}
       />
@@ -78,11 +83,15 @@ export function VerifiedDashboard({
         <ActionCard
           index={hasCompletedCV ? 3 : 1}
           title="Browse Profiles"
-          description="View profiles of verified members."
+          description={
+            isAdmin
+              ? "View all verified member profiles (male and female)."
+              : "View profiles of verified members."
+          }
           icon={Search}
           actionLabel="Browse CVs"
           onAction={() => router.push("/browse")}
-          disabled={!hasCompletedCV}
+          disabled={!canBrowse}
           disabledMessage="Please complete your CV first to browse other profiles."
         />
 

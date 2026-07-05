@@ -232,7 +232,7 @@ export async function requestMatch({
 
     const { data: requesterProfile } = await supabase
       .from("profiles")
-      .select("phone")
+      .select("phone, gender")
       .eq("id", user.id)
       .single();
 
@@ -246,7 +246,7 @@ export async function requestMatch({
     if (requestedCV?.user_id) {
       const { data } = await supabase
         .from("profiles")
-        .select("phone, email")
+        .select("phone, email, gender, verification_status")
         .eq("id", requestedCV.user_id)
         .single();
       requestedProfile = data;
@@ -266,8 +266,8 @@ export async function requestMatch({
 
     if (
       !gendersAreOpposite(
-        requesterCV.data.gender,
-        requestedCV.data.gender
+        requesterProfile?.gender,
+        requestedProfile?.gender
       )
     ) {
       return {
@@ -276,20 +276,14 @@ export async function requestMatch({
       };
     }
 
-    const { data: targetProfile } = await supabase
-      .from("profiles")
-      .select("verification_status")
-      .eq("id", requestedCV.user_id)
-      .maybeSingle();
-
-    if (targetProfile?.verification_status !== "verified") {
+    if (requestedProfile?.verification_status !== "verified") {
       return {
         success: false,
         message: "This profile is not available for match requests",
       };
     }
 
-    const isRequesterMale = requesterCV.data.gender?.toLowerCase() === "male";
+    const isRequesterMale = requesterProfile?.gender === "male";
     const requesterShortId = requesterCV.short_id;
     const requestedShortId = requestedCV.short_id;
     const maleShortId = isRequesterMale ? requesterShortId : requestedShortId;
