@@ -459,12 +459,25 @@ export default function CVBuilder() {
           <p className="mt-2 text-xs text-muted-foreground">
             Accepted formats: JPG, PNG · Maximum size: 2 MB (2048 KB)
           </p>
-          <div className="mt-3 flex items-center gap-3 rounded-lg border border-dashed border-fk-gold/30 bg-white/60 p-3">
-            <div className="flex size-14 items-center justify-center rounded-full bg-fk-plum/10 text-xs font-medium text-fk-plum">
-              Example
+          <div className="mt-3 space-y-3 rounded-lg border border-dashed border-fk-gold/30 bg-white/60 p-4">
+            <p className="text-xs font-medium text-fk-plum">Example photos</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {(['male', 'female'] as const).map((example) => (
+                <div key={example} className="space-y-2">
+                  <img
+                    src={`/images/cv-examples/${example}-example.jpg`}
+                    alt={`${example === 'male' ? 'Male' : 'Female'} profile photo example`}
+                    className="aspect-square w-full max-w-[180px] rounded-xl object-cover shadow-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {example === 'male' ? 'Male example' : 'Female example'}
+                    {' — '}head-and-shoulders, plain background, modest dress.
+                  </p>
+                </div>
+              ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Head-and-shoulders portrait, plain background, modest dress, no group photos or filters.
+              No group photos or filters.
             </p>
           </div>
         </div>
