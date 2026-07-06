@@ -13,7 +13,7 @@ type CVPreviewProps = {
 };
 
 const DEFAULT_INTRO =
-  "This preview shows what verified members will see when browsing your profile. Private details such as your HKID and wali contact details are hidden unless you chose to display wali details on browse.";
+  "This preview shows what verified members will see when browsing your profile. Your HKID is always private. Wali/guarantor contact details only appear here if you chose to display them on your public profile.";
 
 export function CVPreview({
   data,

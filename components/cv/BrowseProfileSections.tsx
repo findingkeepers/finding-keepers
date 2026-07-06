@@ -6,6 +6,10 @@ import {
   formatMultiSelectWithOther,
   formatSelectionWithOther,
 } from "@/lib/cv-other";
+import {
+  WALI_NO_INVOLVEMENT,
+  waliInvolvementRequiresDetails,
+} from "@/lib/cv-constants";
 import { shouldShowWaliOnBrowseProfile } from "@/lib/cv-privacy";
 
 type BrowseProfileSectionsProps = {
@@ -13,9 +17,13 @@ type BrowseProfileSectionsProps = {
 };
 
 export function BrowseProfileSections({ data }: BrowseProfileSectionsProps) {
+  const showWaliDetails = shouldShowWaliOnBrowseProfile(data);
   const browseData = redactCvDataForBrowse(data, {
-    showWali: shouldShowWaliOnBrowseProfile(data),
+    showWali: showWaliDetails,
   });
+  const showWaliContactFields =
+    showWaliDetails &&
+    waliInvolvementRequiresDetails(browseData.waliInvolvement);
 
   return (
     <div className="space-y-6">
@@ -191,20 +199,26 @@ export function BrowseProfileSections({ data }: BrowseProfileSectionsProps) {
           label="Involvement of Parents/Wali"
           value={browseData.waliInvolvement}
         />
-        <CVField
-          label="Situation if not involving parents/wali"
-          value={browseData.waliReason}
-        />
-        <CVField
-          label="Wali's Relationship"
-          value={formatSelectionWithOther(
-            browseData.waliRelationship,
-            browseData.waliRelationshipOther
-          )}
-        />
-        <CVField label="Wali's Name" value={browseData.waliName} />
-        <CVField label="Wali's Phone" value={browseData.waliPhone} />
-        <CVField label="Wali's Email" value={browseData.waliEmail} />
+        {browseData.waliInvolvement === WALI_NO_INVOLVEMENT && (
+          <CVField
+            label="Situation if not involving parents/wali"
+            value={browseData.waliReason}
+          />
+        )}
+        {showWaliContactFields && (
+          <>
+            <CVField
+              label="Wali's Relationship"
+              value={formatSelectionWithOther(
+                browseData.waliRelationship,
+                browseData.waliRelationshipOther
+              )}
+            />
+            <CVField label="Wali's Name" value={browseData.waliName} />
+            <CVField label="Wali's Phone" value={browseData.waliPhone} />
+            <CVField label="Wali's Email" value={browseData.waliEmail} />
+          </>
+        )}
       </CVSectionCard>
     </div>
   );

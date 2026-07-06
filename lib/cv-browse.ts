@@ -2,7 +2,6 @@ const BROWSE_ALWAYS_HIDDEN_FIELDS = new Set([
   "hkidNumber",
   "waliHKID",
   "waliAddress",
-  "showWaliOnProfile",
 ]);
 
 const WALI_CONTACT_FIELDS = new Set([
