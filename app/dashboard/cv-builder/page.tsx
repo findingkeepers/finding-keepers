@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CVPreview } from '@/components/cv/CVPreview';
+import { ProfilePhotoCropper } from '@/components/cv/ProfilePhotoCropper';
 import { CVProgressBar } from '@/components/cv/CVProgressBar';
 import { OtherSpecifyField } from '@/components/cv/OtherSpecifyField';
 import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
@@ -26,7 +27,6 @@ import { profileGenderToCVGender } from '@/lib/gender';
 import {
   ETHNICITY_OPTIONS,
   LEGACY_PARTNER_AGE_UNDER_25,
-  MAX_PROFILE_PHOTO_BYTES,
   PARTNER_AGE_RANGE_OPTIONS,
   PARTNER_EDUCATION_OPTIONS,
   RESIDENCY_OPTIONS,
@@ -59,8 +59,8 @@ export default function CVBuilder() {
   const draftReadyRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
 
-  const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
+  const [photoCropSrc, setPhotoCropSrc] = useState<string | null>(null);
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
 
@@ -265,18 +265,7 @@ export default function CVBuilder() {
     setStepWarnings(getStepWarnings(currentStep, formData));
   }, [currentStep, formData]);
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
-      toast.error("Photo must be 2 MB or smaller");
-      e.target.value = '';
-      return;
-    }
-
-    setPhoto(file);
-
+  const uploadProfilePhoto = async (file: File) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -284,18 +273,50 @@ export default function CVBuilder() {
         return;
       }
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
+      const fileName = `${Date.now()}.jpg`;
       const filePath = `${user.id}/${fileName}`;
 
-      const { error } = await supabase.storage.from('profile-photos').upload(filePath, file);
+      const { error } = await supabase.storage
+        .from('profile-photos')
+        .upload(filePath, file, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
       if (error) throw error;
 
       handleChange('photoUrl', filePath);
       toast.success("Photo uploaded successfully!");
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to upload photo");
     }
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error("Please upload a JPG, PNG, or WebP image");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPhotoCropSrc(reader.result);
+      }
+    };
+    reader.onerror = () => {
+      toast.error("Could not read the selected photo");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCroppedPhoto = async (file: File) => {
+    setPhotoCropSrc(null);
+    await uploadProfilePhoto(file);
   };
 
   const nextStep = () => {
@@ -481,9 +502,21 @@ export default function CVBuilder() {
             </p>
           </div>
         </div>
-        <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} />
+        <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoSelect} />
+        <p className="text-xs text-muted-foreground">
+          After selecting a photo, you can crop it before upload.
+        </p>
       </div>
-      {formData.photoUrl && <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>}
+      {photoPreviewUrl && (
+        <div className="space-y-2">
+          <img
+            src={photoPreviewUrl}
+            alt="Uploaded profile preview"
+            className="aspect-square w-full max-w-[180px] rounded-xl object-cover shadow-sm"
+          />
+          <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>
+        </div>
+      )}
     </div>
   );
 
@@ -867,6 +900,14 @@ export default function CVBuilder() {
               : "Next"}
         </Button>
       </div>
+
+      {photoCropSrc && (
+        <ProfilePhotoCropper
+          imageSrc={photoCropSrc}
+          onCancel={() => setPhotoCropSrc(null)}
+          onComplete={handleCroppedPhoto}
+        />
+      )}
     </div>
   );
 }
