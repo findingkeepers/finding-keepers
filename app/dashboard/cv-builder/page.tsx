@@ -61,6 +61,7 @@ export default function CVBuilder() {
 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('');
   const [photoCropSrc, setPhotoCropSrc] = useState<string | null>(null);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
 
@@ -319,6 +320,52 @@ export default function CVBuilder() {
     await uploadProfilePhoto(file);
   };
 
+  const handleRemovePhoto = async () => {
+    const currentPath = getProfilePhotoStoragePath(formData.photoUrl);
+    if (!currentPath && !formData.photoUrl) {
+      return;
+    }
+
+    setRemovingPhoto(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      if (currentPath) {
+        const { error: storageError } = await supabase.storage
+          .from('profile-photos')
+          .remove([currentPath]);
+
+        if (storageError) {
+          throw storageError;
+        }
+      }
+
+      handleChange('photoUrl', '');
+
+      if (existingCVId) {
+        const { error: cvError } = await supabase
+          .from('cvs')
+          .update({ photo_url: null })
+          .eq('id', existingCVId);
+
+        if (cvError) {
+          throw cvError;
+        }
+      }
+
+      toast.success("Photo removed");
+    } catch {
+      toast.error("Failed to remove photo");
+    } finally {
+      setRemovingPhoto(false);
+    }
+  };
+
   const nextStep = () => {
     const warnings = getStepWarnings(currentStep, formData);
     setStepWarnings(warnings);
@@ -507,14 +554,28 @@ export default function CVBuilder() {
           After selecting a photo, you can crop it before upload.
         </p>
       </div>
-      {photoPreviewUrl && (
-        <div className="space-y-2">
-          <img
-            src={photoPreviewUrl}
-            alt="Uploaded profile preview"
-            className="aspect-square w-full max-w-[180px] rounded-xl object-cover shadow-sm"
-          />
-          <p className="text-sm text-green-600">✓ Photo uploaded successfully</p>
+      {(photoPreviewUrl || formData.photoUrl) && (
+        <div className="space-y-3">
+          {photoPreviewUrl && (
+            <img
+              src={photoPreviewUrl}
+              alt="Uploaded profile preview"
+              className="aspect-square w-full max-w-[180px] rounded-xl object-cover shadow-sm"
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-green-600">✓ Photo uploaded</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-lg text-destructive hover:text-destructive"
+              disabled={removingPhoto}
+              onClick={() => void handleRemovePhoto()}
+            >
+              {removingPhoto ? "Removing..." : "Remove photo"}
+            </Button>
+          </div>
         </div>
       )}
     </div>
