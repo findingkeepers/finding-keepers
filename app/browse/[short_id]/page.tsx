@@ -15,6 +15,7 @@ import { BrowseProfileSections } from '@/components/cv/BrowseProfileSections';
 import { toast } from 'sonner';
 import { getBrowsableProfile } from '@/app/actions/browse';
 import { expireStaleMatchRequests, requestMatch } from '@/app/actions/match';
+import { showMatchResultToast } from '@/lib/match-notifications';
 import {
   blocksNewRequestToPair,
   countsTowardActiveQuota,
@@ -211,7 +212,10 @@ export default function ViewProfilePage() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(result.message);
+        showMatchResultToast(
+          result.message,
+          'Match request updated successfully.'
+        );
         setPendingIncomingRequestId(null);
         if (decision === 'reject') {
           setMatchBlockedReason(
@@ -251,7 +255,10 @@ export default function ViewProfilePage() {
       });
 
       if (result.success) {
-        toast.success("Match request sent! They will be notified by email.");
+        showMatchResultToast(
+          result.message,
+          'Match request sent! They will be notified by email.'
+        );
         setRequestSent(true);
         setMatchBlockedReason(null);
       } else {

@@ -23,6 +23,7 @@ import {
   isPendingExpired,
 } from '@/lib/match-expiry';
 import { toast } from 'sonner';
+import { showMatchResultToast } from '@/lib/match-notifications';
 import { cn } from '@/lib/utils';
 
 interface MatchRequest {
@@ -113,7 +114,10 @@ export default function MyMatchRequestsPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success(result.message);
+        showMatchResultToast(
+          result.message,
+          'Match request updated successfully.'
+        );
         await fetchRequests();
       } else {
         toast.error(result.message || 'Could not update match request');

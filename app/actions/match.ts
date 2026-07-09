@@ -71,6 +71,67 @@ function buildPartyDetailsFromCv(
   };
 }
 
+type MatchParticipant = {
+  shortId: string;
+  email: string | null;
+  phone: string;
+  cvData: Record<string, string>;
+  gender: string | null;
+  verificationStatus: string | null;
+};
+
+type AdminSupabaseClient = NonNullable<
+  ReturnType<typeof createAdminSupabaseClient>
+>;
+
+async function getMatchParticipant(
+  admin: AdminSupabaseClient,
+  shortId: string
+): Promise<MatchParticipant | null> {
+  const { data: cv } = await admin
+    .from("cvs")
+    .select("short_id, data, user_id")
+    .eq("short_id", shortId)
+    .maybeSingle();
+
+  if (!cv?.user_id) {
+    return null;
+  }
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email, phone, gender, verification_status")
+    .eq("id", cv.user_id)
+    .maybeSingle();
+
+  let email = profile?.email?.trim() || null;
+
+  if (!email) {
+    const { data: authUser } = await admin.auth.admin.getUserById(cv.user_id);
+    email = authUser.user?.email?.trim() || null;
+  }
+
+  return {
+    shortId: cv.short_id,
+    email,
+    phone: profile?.phone?.trim() || "",
+    cvData: (cv.data as Record<string, string>) || {},
+    gender: profile?.gender ?? null,
+    verificationStatus: profile?.verification_status ?? null,
+  };
+}
+
+function formatMessageWithEmailWarnings(
+  baseMessage: string,
+  warnings: string[]
+) {
+  if (warnings.length === 0) {
+    return baseMessage;
+  }
+
+  return `${baseMessage} Some notifications could not be sent: ${warnings.join("; ")}`;
+}
+
 function buildAdminMatchEmailHtml({
   heading,
   intro,
@@ -153,6 +214,29 @@ function buildRecipientRequestEmailHtml({
   `;
 }
 
+function buildParticipantStatusEmailHtml({
+  heading,
+  body,
+}: {
+  heading: string;
+  body: string;
+}) {
+  const appUrl = getAppUrl();
+
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
+      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">${heading}</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        ${body}
+      </p>
+      <a href="${appUrl}/dashboard/my-match-requests" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px;">
+        View my match requests
+      </a>
+    </div>
+  `;
+}
+
 function buildRequesterDecisionEmailHtml({
   recipientShortId,
   approved,
@@ -182,25 +266,276 @@ function buildRequesterDecisionEmailHtml({
   `;
 }
 
-async function getEmailForShortId(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  shortId: string
-) {
-  const { data: cv } = await supabase
-    .from("cvs")
-    .select("user_id")
-    .eq("short_id", shortId)
-    .maybeSingle();
+async function sendAdminMatchNotification({
+  subject,
+  heading,
+  intro,
+  requester,
+  recipient,
+}: {
+  subject: string;
+  heading: string;
+  intro: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+}) {
+  const result = await sendEmail({
+    to: getAdminNotificationEmail(),
+    subject,
+    html: buildAdminMatchEmailHtml({
+      heading,
+      intro,
+      requester,
+      recipient,
+    }),
+  });
 
-  if (!cv?.user_id) return null;
+  if (!result.ok) {
+    console.error("Admin match notification failed:", result.message);
+    return `Admin notification failed: ${result.message}`;
+  }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("id", cv.user_id)
-    .maybeSingle();
+  return null;
+}
 
-  return profile?.email?.trim() || null;
+async function sendRequesterDecisionNotification({
+  approved,
+  requesterEmail,
+  recipientShortId,
+}: {
+  approved: boolean;
+  requesterEmail: string | null;
+  recipientShortId: string;
+}) {
+  if (!requesterEmail) {
+    return "Requester email not found";
+  }
+
+  const result = await sendEmail({
+    to: requesterEmail,
+    subject: approved
+      ? "Your match request was approved"
+      : "Update on your match request",
+    html: buildRequesterDecisionEmailHtml({
+      recipientShortId,
+      approved,
+    }),
+  });
+
+  if (!result.ok) {
+    console.error("Requester decision notification failed:", result.message);
+    return `Requester notification failed: ${result.message}`;
+  }
+
+  return null;
+}
+
+async function sendParticipantStatusNotification({
+  email,
+  role,
+  subject,
+  heading,
+  body,
+}: {
+  email: string | null;
+  role: string;
+  subject: string;
+  heading: string;
+  body: string;
+}) {
+  if (!email) {
+    return `${role} email not found`;
+  }
+
+  const result = await sendEmail({
+    to: email,
+    subject,
+    html: buildParticipantStatusEmailHtml({ heading, body }),
+  });
+
+  if (!result.ok) {
+    console.error(`${role} status notification failed:`, result.message);
+    return `${role} notification failed: ${result.message}`;
+  }
+
+  return null;
+}
+
+async function sendNewMatchRequestEmails({
+  requesterShortId,
+  requestedShortId,
+  requester,
+  recipient,
+  recipientEmail,
+}: {
+  requesterShortId: string;
+  requestedShortId: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+  recipientEmail: string | null;
+}) {
+  const warnings: string[] = [];
+
+  const adminWarning = await sendAdminMatchNotification({
+    subject: `New Match Request: ${requesterShortId} → ${requestedShortId}`,
+    heading: "New Match Request",
+    intro:
+      "A new match request has been submitted and is awaiting the recipient's approval.",
+    requester,
+    recipient,
+  });
+  if (adminWarning) warnings.push(adminWarning);
+
+  if (recipientEmail) {
+    const recipientEmailResult = await sendEmail({
+      to: recipientEmail,
+      subject: "You received a match request on Finding Keepers",
+      html: buildRecipientRequestEmailHtml({
+        requesterShortId,
+      }),
+    });
+
+    if (!recipientEmailResult.ok) {
+      console.error(
+        "Recipient match notification failed:",
+        recipientEmailResult.message
+      );
+      warnings.push(
+        `Recipient notification failed: ${recipientEmailResult.message}`
+      );
+    }
+  } else {
+    warnings.push("Recipient email not found");
+  }
+
+  return warnings;
+}
+
+async function sendMatchDecisionEmails({
+  approved,
+  fromId,
+  toId,
+  requester,
+  recipient,
+  requesterEmail,
+  intro,
+}: {
+  approved: boolean;
+  fromId: string;
+  toId: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+  requesterEmail: string | null;
+  intro: string;
+}) {
+  const warnings: string[] = [];
+  const decisionLabel = approved ? "approved" : "declined";
+
+  const adminWarning = await sendAdminMatchNotification({
+    subject: `Match request ${decisionLabel}: ${fromId} → ${toId}`,
+    heading: `Match Request ${approved ? "Approved" : "Declined"}`,
+    intro,
+    requester,
+    recipient,
+  });
+  if (adminWarning) warnings.push(adminWarning);
+
+  const requesterWarning = await sendRequesterDecisionNotification({
+    approved,
+    requesterEmail,
+    recipientShortId: toId,
+  });
+  if (requesterWarning) warnings.push(requesterWarning);
+
+  return warnings;
+}
+
+async function sendAdminStatusChangeEmails({
+  previousStatus,
+  newStatus,
+  fromId,
+  toId,
+  requester,
+  recipient,
+  requesterEmail,
+  recipientEmail,
+}: {
+  previousStatus: string;
+  newStatus: string;
+  fromId: string;
+  toId: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+  requesterEmail: string | null;
+  recipientEmail: string | null;
+}) {
+  const warnings: string[] = [];
+
+  const adminWarning = await sendAdminMatchNotification({
+    subject: `Match status updated: ${fromId} → ${toId} (${newStatus})`,
+    heading: "Match Status Updated",
+    intro: `An admin updated this match request from <strong>${escapeHtml(previousStatus)}</strong> to <strong>${escapeHtml(newStatus)}</strong>.`,
+    requester,
+    recipient,
+  });
+  if (adminWarning) warnings.push(adminWarning);
+
+  if (newStatus === "approved" || newStatus === "rejected") {
+    const requesterWarning = await sendRequesterDecisionNotification({
+      approved: newStatus === "approved",
+      requesterEmail,
+      recipientShortId: toId,
+    });
+    if (requesterWarning) warnings.push(requesterWarning);
+    return warnings;
+  }
+
+  if (newStatus === "contacted") {
+    for (const [email, role, otherShortId] of [
+      [requesterEmail, "Requester", toId],
+      [recipientEmail, "Recipient", fromId],
+    ] as const) {
+      const warning = await sendParticipantStatusNotification({
+        email,
+        role,
+        subject: "Update on your match request",
+        heading: "Your match is being followed up",
+        body: `The Finding Keepers admin team has marked your match with profile <strong>${otherShortId}</strong> as contacted and will guide the next steps.`,
+      });
+      if (warning) warnings.push(warning);
+    }
+    return warnings;
+  }
+
+  if (newStatus === "completed") {
+    for (const [email, role, otherShortId] of [
+      [requesterEmail, "Requester", toId],
+      [recipientEmail, "Recipient", fromId],
+    ] as const) {
+      const warning = await sendParticipantStatusNotification({
+        email,
+        role,
+        subject: "Your match has been completed",
+        heading: "Match marked as completed",
+        body: `Your match with profile <strong>${otherShortId}</strong> has been marked as completed by the admin team.`,
+      });
+      if (warning) warnings.push(warning);
+    }
+    return warnings;
+  }
+
+  if (newStatus === "expired") {
+    const warning = await sendParticipantStatusNotification({
+      email: requesterEmail,
+      role: "Requester",
+      subject: "Your match request has expired",
+      heading: "Match request expired",
+      body: `Your match request to profile <strong>${toId}</strong> has expired after 7 days without a response. You may request another match when you are ready.`,
+    });
+    if (warning) warnings.push(warning);
+  }
+
+  return warnings;
 }
 
 export async function requestMatch({
@@ -220,9 +555,15 @@ export async function requestMatch({
     const user = auth.user;
 
     const admin = createAdminSupabaseClient();
-    if (admin) {
-      await expireStalePendingMatchRequests(admin);
+    if (!admin) {
+      return {
+        success: false,
+        message:
+          "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY.",
+      };
     }
+
+    await expireStalePendingMatchRequests(admin);
 
     const { data: requesterCV } = await supabase
       .from("cvs")
@@ -236,38 +577,24 @@ export async function requestMatch({
       .eq("id", user.id)
       .single();
 
-    const { data: requestedCV } = await supabase
-      .from("cvs")
-      .select("short_id, data, user_id")
-      .eq("short_id", profileShortId)
-      .single();
-
-    let requestedProfile = null;
-    if (requestedCV?.user_id) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("phone, email, gender, verification_status")
-        .eq("id", requestedCV.user_id)
-        .single();
-      requestedProfile = data;
-    }
+    const requestedParticipant = await getMatchParticipant(admin, profileShortId);
 
     if (!requesterCV?.data || !requesterCV.short_id) {
       return { success: false, message: "Your CV not found" };
     }
 
-    if (!requestedCV?.data || !requestedCV.short_id) {
+    if (!requestedParticipant) {
       return { success: false, message: "Requested profile not found" };
     }
 
-    if (requesterCV.short_id === requestedCV.short_id) {
+    if (requesterCV.short_id === requestedParticipant.shortId) {
       return { success: false, message: "You cannot send a request to yourself" };
     }
 
     if (
       !gendersAreOpposite(
         requesterProfile?.gender,
-        requestedProfile?.gender
+        requestedParticipant.gender
       )
     ) {
       return {
@@ -276,7 +603,7 @@ export async function requestMatch({
       };
     }
 
-    if (requestedProfile?.verification_status !== "verified") {
+    if (requestedParticipant.verificationStatus !== "verified") {
       return {
         success: false,
         message: "This profile is not available for match requests",
@@ -285,7 +612,7 @@ export async function requestMatch({
 
     const isRequesterMale = requesterProfile?.gender === "male";
     const requesterShortId = requesterCV.short_id;
-    const requestedShortId = requestedCV.short_id;
+    const requestedShortId = requestedParticipant.shortId;
     const maleShortId = isRequesterMale ? requesterShortId : requestedShortId;
     const femaleShortId = isRequesterMale ? requestedShortId : requesterShortId;
 
@@ -354,8 +681,8 @@ export async function requestMatch({
 
     const recipient = buildPartyDetailsFromCv(
       requestedShortId,
-      requestedCV.data,
-      requestedProfile?.phone || ""
+      requestedParticipant.cvData,
+      requestedParticipant.phone
     );
 
     const { error: insertError } = await supabase.from("match_requests").insert({
@@ -372,41 +699,21 @@ export async function requestMatch({
       return { success: false, message: "Failed to create match request" };
     }
 
-    const adminEmail = await sendEmail({
-      to: getAdminNotificationEmail(),
-      subject: `New Match Request: ${requesterShortId} → ${requestedShortId}`,
-      html: buildAdminMatchEmailHtml({
-        heading: "New Match Request",
-        intro:
-          "A new match request has been submitted and is awaiting the recipient's approval.",
-        requester,
-        recipient,
-      }),
+    const emailWarnings = await sendNewMatchRequestEmails({
+      requesterShortId,
+      requestedShortId,
+      requester,
+      recipient,
+      recipientEmail: requestedParticipant.email,
     });
 
-    if (!adminEmail.ok) {
-      console.error("Admin match notification failed:", adminEmail.message);
-    }
-
-    const recipientEmail = requestedProfile?.email?.trim();
-    if (recipientEmail) {
-      const recipientEmailResult = await sendEmail({
-        to: recipientEmail,
-        subject: "You received a match request on Finding Keepers",
-        html: buildRecipientRequestEmailHtml({
-          requesterShortId,
-        }),
-      });
-
-      if (!recipientEmailResult.ok) {
-        console.error(
-          "Recipient match notification failed:",
-          recipientEmailResult.message
-        );
-      }
-    }
-
-    return { success: true };
+    return {
+      success: true,
+      message: formatMessageWithEmailWarnings(
+        "Match request sent. The recipient and admin team have been notified by email.",
+        emailWarnings
+      ),
+    };
   } catch (error: unknown) {
     console.error("Match request error:", error);
     const message =
@@ -515,87 +822,43 @@ export async function respondToMatchRequest({
       return { success: false, message: "Failed to update match request" };
     }
 
-    const { data: requesterCV } = await supabase
-      .from("cvs")
-      .select("data, user_id")
-      .eq("short_id", fromId)
-      .maybeSingle();
-
-    const [{ data: requesterProfile }, { data: recipientProfile }] =
-      await Promise.all([
-        requesterCV?.user_id
-          ? supabase
-              .from("profiles")
-              .select("phone, email")
-              .eq("id", requesterCV.user_id)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-        supabase
-          .from("profiles")
-          .select("phone, email")
-          .eq("id", user.id)
-          .maybeSingle(),
-      ]);
+    const requesterParticipant = await getMatchParticipant(admin, fromId);
+    const recipientParticipant = await getMatchParticipant(admin, toId);
 
     const requester = buildPartyDetailsFromCv(
       fromId,
-      (requesterCV?.data as Record<string, string>) || {},
-      requesterProfile?.phone || ""
+      requesterParticipant?.cvData || {},
+      requesterParticipant?.phone || ""
     );
 
     const recipient = buildPartyDetailsFromCv(
       toId,
-      (myCV.data as Record<string, string>) || {},
-      recipientProfile?.phone || ""
+      recipientParticipant?.cvData ||
+        ((myCV.data as Record<string, string>) ?? {}),
+      recipientParticipant?.phone || ""
     );
 
     const approved = decision === "approve";
     const decisionLabel = approved ? "approved" : "declined";
 
-    const adminEmail = await sendEmail({
-      to: getAdminNotificationEmail(),
-      subject: `Match request ${decisionLabel}: ${fromId} → ${toId}`,
-      html: buildAdminMatchEmailHtml({
-        heading: `Match Request ${approved ? "Approved" : "Declined"}`,
-        intro: `The recipient has ${decisionLabel} this match request.`,
-        requester,
-        recipient,
-      }),
+    const emailWarnings = await sendMatchDecisionEmails({
+      approved,
+      fromId,
+      toId,
+      requester,
+      recipient,
+      requesterEmail: requesterParticipant?.email ?? null,
+      intro: `The recipient has ${decisionLabel} this match request.`,
     });
-
-    if (!adminEmail.ok) {
-      console.error("Admin decision notification failed:", adminEmail.message);
-    }
-
-    const requesterEmail =
-      requesterProfile?.email?.trim() ||
-      (await getEmailForShortId(supabase, fromId));
-
-    if (requesterEmail) {
-      const requesterEmailResult = await sendEmail({
-        to: requesterEmail,
-        subject: approved
-          ? "Your match request was approved"
-          : "Update on your match request",
-        html: buildRequesterDecisionEmailHtml({
-          recipientShortId: toId,
-          approved,
-        }),
-      });
-
-      if (!requesterEmailResult.ok) {
-        console.error(
-          "Requester decision notification failed:",
-          requesterEmailResult.message
-        );
-      }
-    }
 
     return {
       success: true,
-      message: approved
-        ? "Match request approved. The requester and admin team have been notified."
-        : "Match request declined. The requester and admin team have been notified.",
+      message: formatMessageWithEmailWarnings(
+        approved
+          ? "Match request approved. The requester and admin team have been notified."
+          : "Match request declined. The requester and admin team have been notified.",
+        emailWarnings
+      ),
     };
   } catch (error: unknown) {
     console.error("Match response error:", error);
@@ -638,6 +901,20 @@ export async function updateAdminMatchStatus({
     };
   }
 
+  const { data: existingRequest, error: fetchError } = await admin
+    .from("match_requests")
+    .select("*")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (fetchError || !existingRequest) {
+    return { success: false, message: "Match request not found" };
+  }
+
+  if (existingRequest.status === newStatus) {
+    return { success: true, message: `Status is already ${newStatus}` };
+  }
+
   const { error } = await admin
     .from("match_requests")
     .update({ status: newStatus })
@@ -648,5 +925,39 @@ export async function updateAdminMatchStatus({
     return { success: false, message: "Failed to update status" };
   }
 
-  return { success: true, message: `Status updated to ${newStatus}` };
+  const { fromId, toId } = getMatchDirection(existingRequest);
+  const [requesterParticipant, recipientParticipant] = await Promise.all([
+    getMatchParticipant(admin, fromId),
+    getMatchParticipant(admin, toId),
+  ]);
+
+  const requester = buildPartyDetailsFromCv(
+    fromId,
+    requesterParticipant?.cvData || {},
+    requesterParticipant?.phone || ""
+  );
+  const recipient = buildPartyDetailsFromCv(
+    toId,
+    recipientParticipant?.cvData || {},
+    recipientParticipant?.phone || ""
+  );
+
+  const emailWarnings = await sendAdminStatusChangeEmails({
+    previousStatus: existingRequest.status,
+    newStatus,
+    fromId,
+    toId,
+    requester,
+    recipient,
+    requesterEmail: requesterParticipant?.email ?? null,
+    recipientEmail: recipientParticipant?.email ?? null,
+  });
+
+  return {
+    success: true,
+    message: formatMessageWithEmailWarnings(
+      `Status updated to ${newStatus}.`,
+      emailWarnings
+    ),
+  };
 }

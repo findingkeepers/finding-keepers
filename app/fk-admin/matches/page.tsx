@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { DataTable, DataTableHead, DataTableRow, DataTableCell } from '@/components/layout/DataTable';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from 'sonner';
+import { showMatchResultToast } from '@/lib/match-notifications';
 import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
 import { updateAdminMatchStatus } from '@/app/actions/match';
 
@@ -81,7 +82,7 @@ export default function AdminMatchesPage() {
       return;
     }
 
-    toast.success(result.message);
+    showMatchResultToast(result.message, `Status updated successfully.`);
     fetchMatchRequests();
   };
 
