@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { showMatchResultToast } from '@/lib/match-notifications';
 import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
 import { updateAdminMatchStatus } from '@/app/actions/match';
+import { normalizeMatchStatus } from '@/lib/match-status';
 
 interface MatchRequest {
   id: string;
@@ -68,7 +69,9 @@ export default function AdminMatchesPage() {
     }
 
     if (statusFilter !== 'all') {
-      result = result.filter((req) => req.status === statusFilter);
+      result = result.filter(
+        (req) => normalizeMatchStatus(req.status) === statusFilter
+      );
     }
 
     setFilteredRequests(result);
@@ -116,9 +119,12 @@ export default function AdminMatchesPage() {
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
+            <option value="interest_returned">Interest returned</option>
+            <option value="active">Active introduction</option>
             <option value="contacted">Contacted</option>
             <option value="completed">Completed</option>
+            <option value="unmatched">Introduction ended</option>
+            <option value="withdrawn">Closed</option>
             <option value="rejected">Rejected</option>
             <option value="expired">Expired</option>
           </Select>
@@ -171,19 +177,22 @@ export default function AdminMatchesPage() {
                     />
                   </DataTableCell>
                   <DataTableCell>
-                    <StatusBadge status={req.status} />
+                    <StatusBadge status={normalizeMatchStatus(req.status)} />
                   </DataTableCell>
                   <DataTableCell>
                     <Select
-                      value={req.status}
+                      value={normalizeMatchStatus(req.status)}
                       onChange={(e) => updateStatus(req.id, e.target.value)}
                       className="h-9 text-sm"
                     >
                       <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
+                      <option value="interest_returned">Interest returned</option>
                       <option value="contacted">Contacted</option>
                       <option value="completed">Completed</option>
+                      <option value="unmatched">Introduction ended</option>
                       <option value="rejected">Rejected</option>
+                      <option value="expired">Expired</option>
+                      <option value="withdrawn">Closed</option>
                     </Select>
                   </DataTableCell>
                 </DataTableRow>

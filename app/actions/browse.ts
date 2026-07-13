@@ -10,6 +10,7 @@ import { createProfilePhotoSignedUrl } from "@/lib/profile-photo";
 type OwnerProfile = {
   gender: string | null;
   verification_status: string | null;
+  browse_visible?: boolean | null;
 };
 
 type CvWithOwnerProfile = {
@@ -58,7 +59,7 @@ export async function getBrowsableProfiles() {
   const { data: cvs, error } = await supabase
     .from("cvs")
     .select(
-      "short_id, photo_url, data, user_id, profiles!inner(gender, verification_status)"
+      "short_id, photo_url, data, user_id, profiles!inner(gender, verification_status, browse_visible)"
     )
     .neq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
@@ -73,6 +74,10 @@ export async function getBrowsableProfiles() {
       const ownerProfile = getOwnerProfile(cv.profiles);
 
       if (ownerProfile?.verification_status !== "verified") {
+        return false;
+      }
+
+      if (ownerProfile?.browse_visible === false) {
         return false;
       }
 
@@ -125,7 +130,7 @@ export async function getBrowsableProfile(shortId: string) {
   const { data: cv, error } = await supabase
     .from("cvs")
     .select(
-      "short_id, photo_url, data, user_id, profiles!inner(gender, verification_status)"
+      "short_id, photo_url, data, user_id, profiles!inner(gender, verification_status, browse_visible)"
     )
     .eq("short_id", shortId)
     .maybeSingle();
@@ -139,6 +144,10 @@ export async function getBrowsableProfile(shortId: string) {
   );
 
   if (targetProfile?.verification_status !== "verified") {
+    return { ok: false as const, message: "Profile not available" };
+  }
+
+  if (!isAdmin && targetProfile?.browse_visible === false) {
     return { ok: false as const, message: "Profile not available" };
   }
 

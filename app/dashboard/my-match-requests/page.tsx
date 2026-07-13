@@ -22,6 +22,12 @@ import {
   getEffectiveMatchStatus,
   isPendingExpired,
 } from '@/lib/match-expiry';
+import {
+  getDisplayMatchStatus,
+  MATCH_STATUS,
+  normalizeMatchStatus,
+  SELECTION_WINDOW_HOURS,
+} from '@/lib/match-status';
 import { toast } from 'sonner';
 import { showMatchResultToast } from '@/lib/match-notifications';
 import { cn } from '@/lib/utils';
@@ -33,9 +39,14 @@ interface MatchRequest {
   requested_by_short_id?: string | null;
   status: string;
   created_at: string;
+  interest_returned_at?: string | null;
 }
 
 type TabKey = 'sent' | 'received';
+
+function isInterestReturnedStatus(status: string) {
+  return normalizeMatchStatus(status) === MATCH_STATUS.interestReturned;
+}
 
 export default function MyMatchRequestsPage() {
   const router = useRouter();
@@ -44,6 +55,7 @@ export default function MyMatchRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
   const { onMenuClick } = useDashboardMenu();
 
   const fetchRequests = useCallback(async () => {
@@ -95,6 +107,14 @@ export default function MyMatchRequestsPage() {
     [requests, myShortId]
   );
 
+  const returnedSentCount = useMemo(
+    () =>
+      sentRequests.filter((req) =>
+        isInterestReturnedStatus(getEffectiveMatchStatus(req.status, req.created_at))
+      ).length,
+    [sentRequests]
+  );
+
   const visibleRequests = activeTab === 'sent' ? sentRequests : receivedRequests;
 
   const handleRespond = async (
@@ -116,7 +136,9 @@ export default function MyMatchRequestsPage() {
       if (result.success) {
         showMatchResultToast(
           result.message,
-          'Match request updated successfully.'
+          decision === 'approve'
+            ? 'Interest returned successfully.'
+            : 'Match request updated successfully.'
         );
         await fetchRequests();
       } else {
@@ -129,15 +151,52 @@ export default function MyMatchRequestsPage() {
     setRespondingId(null);
   };
 
+  const handleActivate = async (requestId: string) => {
+    setActivatingId(requestId);
+
+    try {
+      const response = await fetch('/api/match/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ requestId }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showMatchResultToast(
+          result.message,
+          'Introduction started successfully.'
+        );
+        await fetchRequests();
+      } else {
+        toast.error(result.message || 'Could not begin introduction');
+      }
+    } catch {
+      toast.error('Could not begin introduction. Please try again.');
+    }
+
+    setActivatingId(null);
+  };
+
   if (loading) return <LoadingSpinner message="Loading match requests..." />;
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="My Match Requests"
-        subtitle="Review requests you sent and received."
+        subtitle="Express interest in up to three profiles, then choose one introduction to proceed with."
         onMenuClick={onMenuClick}
       />
+
+      {activeTab === 'sent' && returnedSentCount > 1 && (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
+          <strong>{returnedSentCount} members</strong> have returned your interest.
+          Please select one introduction to proceed with within{' '}
+          {SELECTION_WINDOW_HOURS} hours.
+        </div>
+      )}
 
       <div className="mb-6 flex gap-2 rounded-xl border border-fk-gold/20 bg-fk-cream/40 p-1">
         <button
@@ -189,7 +248,7 @@ export default function MyMatchRequestsPage() {
             <tbody>
               {visibleRequests.map((req) => {
                 const { fromId } = getMatchDirection(req);
-                const displayStatus = getEffectiveMatchStatus(
+                const displayStatus = getDisplayMatchStatus(
                   req.status,
                   req.created_at
                 );
@@ -197,6 +256,9 @@ export default function MyMatchRequestsPage() {
                   activeTab === 'received' &&
                   req.status === 'pending' &&
                   !isPendingExpired(req.created_at);
+                const canBeginIntroduction =
+                  activeTab === 'sent' &&
+                  isInterestReturnedStatus(req.status);
 
                 return (
                   <DataTableRow key={req.id}>
@@ -233,7 +295,7 @@ export default function MyMatchRequestsPage() {
                             disabled={respondingId === req.id}
                             onClick={() => handleRespond(req.id, 'approve')}
                           >
-                            Approve
+                            Return interest
                           </Button>
                           <Button
                             variant="outline"
@@ -245,6 +307,16 @@ export default function MyMatchRequestsPage() {
                             Decline
                           </Button>
                         </div>
+                      ) : canBeginIntroduction ? (
+                        <Button
+                          variant="premium"
+                          size="sm"
+                          className="rounded-lg"
+                          disabled={activatingId === req.id}
+                          onClick={() => handleActivate(req.id)}
+                        >
+                          Begin introduction
+                        </Button>
                       ) : activeTab === 'sent' && req.status === 'pending' ? (
                         <span className="text-sm text-muted-foreground">
                           {isPendingExpired(req.created_at)
@@ -254,6 +326,14 @@ export default function MyMatchRequestsPage() {
                       ) : displayStatus === 'expired' ? (
                         <span className="text-sm text-muted-foreground">
                           Expired after 7 days — you can request again
+                        </span>
+                      ) : displayStatus === MATCH_STATUS.withdrawn ? (
+                        <span className="text-sm text-muted-foreground">
+                          Closed — another introduction is in progress
+                        </span>
+                      ) : displayStatus === MATCH_STATUS.active ? (
+                        <span className="text-sm font-medium text-violet-700">
+                          Active introduction
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>

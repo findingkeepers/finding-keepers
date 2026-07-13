@@ -14,6 +14,12 @@ import {
   countsTowardActiveQuota,
   MAX_ACTIVE_MATCH_REQUESTS,
 } from "@/lib/match-limits";
+import {
+  hasActiveIntroduction,
+  MATCH_STATUS,
+  normalizeMatchStatus,
+  SELECTION_WINDOW_HOURS,
+} from "@/lib/match-status";
 import { getMatchDirection } from "@/lib/match-request";
 import { assertAdmin, assertProfileVerified } from "@/lib/auth/guards";
 import { gendersAreOpposite } from "@/lib/gender";
@@ -73,11 +79,14 @@ function buildPartyDetailsFromCv(
 
 type MatchParticipant = {
   shortId: string;
+  userId: string;
   email: string | null;
   phone: string;
   cvData: Record<string, string>;
   gender: string | null;
   verificationStatus: string | null;
+  browseVisible: boolean;
+  activeIntroductionRequestId: string | null;
 };
 
 type AdminSupabaseClient = NonNullable<
@@ -100,7 +109,9 @@ async function getMatchParticipant(
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("email, phone, gender, verification_status")
+    .select(
+      "email, phone, gender, verification_status, browse_visible, active_introduction_request_id"
+    )
     .eq("id", cv.user_id)
     .maybeSingle();
 
@@ -113,11 +124,14 @@ async function getMatchParticipant(
 
   return {
     shortId: cv.short_id,
+    userId: cv.user_id,
     email,
     phone: profile?.phone?.trim() || "",
     cvData: (cv.data as Record<string, string>) || {},
     gender: profile?.gender ?? null,
     verificationStatus: profile?.verification_status ?? null,
+    browseVisible: profile?.browse_visible ?? true,
+    activeIntroductionRequestId: profile?.active_introduction_request_id ?? null,
   };
 }
 
@@ -132,16 +146,35 @@ function formatMessageWithEmailWarnings(
   return `${baseMessage} Some notifications could not be sent: ${warnings.join("; ")}`;
 }
 
+function buildPartySummaryBlock(party: PartyDetails, includeWaliDetails: boolean) {
+  const waliSection = includeWaliDetails
+    ? `
+        <p><strong>Wali/Guarantor:</strong> ${escapeHtml(party.waliName)} (${escapeHtml(party.waliRelation)})</p>
+        <p><strong>Wali Phone:</strong> ${escapeHtml(party.waliPhone)}</p>
+        <p><strong>Wali Email:</strong> ${escapeHtml(party.waliEmail)}</p>
+      `
+    : "";
+
+  return `
+    <p><strong>Short ID:</strong> ${escapeHtml(party.shortId)}</p>
+    <p><strong>Name:</strong> ${escapeHtml(party.name)}</p>
+    <p><strong>Contact:</strong> ${escapeHtml(party.phone)}</p>
+    ${waliSection}
+  `;
+}
+
 function buildAdminMatchEmailHtml({
   heading,
   intro,
   requester,
   recipient,
+  includeWaliDetails = false,
 }: {
   heading: string;
   intro: string;
   requester: PartyDetails;
   recipient: PartyDetails;
+  includeWaliDetails?: boolean;
 }) {
   const appUrl = getAppUrl();
 
@@ -153,22 +186,12 @@ function buildAdminMatchEmailHtml({
 
       <h3 style="color: #1e40af; margin-top: 25px;">Person Who Requested</h3>
       <div style="background-color: #f0f9ff; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
-        <p><strong>Short ID:</strong> ${escapeHtml(requester.shortId)}</p>
-        <p><strong>Name:</strong> ${escapeHtml(requester.name)}</p>
-        <p><strong>Contact:</strong> ${escapeHtml(requester.phone)}</p>
-        <p><strong>Wali/Guarantor:</strong> ${escapeHtml(requester.waliName)} (${escapeHtml(requester.waliRelation)})</p>
-        <p><strong>Wali Phone:</strong> ${escapeHtml(requester.waliPhone)}</p>
-        <p><strong>Wali Email:</strong> ${escapeHtml(requester.waliEmail)}</p>
+        ${buildPartySummaryBlock(requester, includeWaliDetails)}
       </div>
 
       <h3 style="color: #9f1239; margin-top: 20px;">Person Request Sent To</h3>
       <div style="background-color: #fef2f2; padding: 16px; border-radius: 8px; margin-bottom: 25px;">
-        <p><strong>Short ID:</strong> ${escapeHtml(recipient.shortId)}</p>
-        <p><strong>Name:</strong> ${escapeHtml(recipient.name)}</p>
-        <p><strong>Contact:</strong> ${escapeHtml(recipient.phone)}</p>
-        <p><strong>Wali/Guarantor:</strong> ${escapeHtml(recipient.waliName)} (${escapeHtml(recipient.waliRelation)})</p>
-        <p><strong>Wali Phone:</strong> ${escapeHtml(recipient.waliPhone)}</p>
-        <p><strong>Wali Email:</strong> ${escapeHtml(recipient.waliEmail)}</p>
+        ${buildPartySummaryBlock(recipient, includeWaliDetails)}
       </div>
 
       <a href="${appUrl}/fk-admin/matches" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 10px;">
@@ -239,10 +262,10 @@ function buildParticipantStatusEmailHtml({
 
 function buildRequesterDecisionEmailHtml({
   recipientShortId,
-  approved,
+  interestReturned,
 }: {
   recipientShortId: string;
-  approved: boolean;
+  interestReturned: boolean;
 }) {
   const appUrl = getAppUrl();
 
@@ -250,12 +273,12 @@ function buildRequesterDecisionEmailHtml({
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
       <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">
-        ${approved ? "Your match request was approved" : "Update on your match request"}
+        ${interestReturned ? "Interest returned on your request" : "Update on your match request"}
       </h1>
       <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
         ${
-          approved
-            ? `Profile <strong>${recipientShortId}</strong> has approved your match request. Our admin team will guide the next steps.`
+          interestReturned
+            ? `Profile <strong>${recipientShortId}</strong> has returned your interest. If you have other returned interests, you may choose one introduction to proceed with from your dashboard. Wali details are shared only once an introduction becomes active.`
             : `Profile <strong>${recipientShortId}</strong> has declined your match request at this time.`
         }
       </p>
@@ -272,12 +295,14 @@ async function sendAdminMatchNotification({
   intro,
   requester,
   recipient,
+  includeWaliDetails = false,
 }: {
   subject: string;
   heading: string;
   intro: string;
   requester: PartyDetails;
   recipient: PartyDetails;
+  includeWaliDetails?: boolean;
 }) {
   const result = await sendEmail({
     to: getAdminNotificationEmail(),
@@ -287,6 +312,7 @@ async function sendAdminMatchNotification({
       intro,
       requester,
       recipient,
+      includeWaliDetails,
     }),
   });
 
@@ -299,11 +325,11 @@ async function sendAdminMatchNotification({
 }
 
 async function sendRequesterDecisionNotification({
-  approved,
+  interestReturned,
   requesterEmail,
   recipientShortId,
 }: {
-  approved: boolean;
+  interestReturned: boolean;
   requesterEmail: string | null;
   recipientShortId: string;
 }) {
@@ -313,12 +339,12 @@ async function sendRequesterDecisionNotification({
 
   const result = await sendEmail({
     to: requesterEmail,
-    subject: approved
-      ? "Your match request was approved"
+    subject: interestReturned
+      ? "Interest returned on your match request"
       : "Update on your match request",
     html: buildRequesterDecisionEmailHtml({
       recipientShortId,
-      approved,
+      interestReturned,
     }),
   });
 
@@ -412,7 +438,7 @@ async function sendNewMatchRequestEmails({
 }
 
 async function sendMatchDecisionEmails({
-  approved,
+  interestReturned,
   fromId,
   toId,
   requester,
@@ -420,7 +446,7 @@ async function sendMatchDecisionEmails({
   requesterEmail,
   intro,
 }: {
-  approved: boolean;
+  interestReturned: boolean;
   fromId: string;
   toId: string;
   requester: PartyDetails;
@@ -429,23 +455,129 @@ async function sendMatchDecisionEmails({
   intro: string;
 }) {
   const warnings: string[] = [];
-  const decisionLabel = approved ? "approved" : "declined";
+  const decisionLabel = interestReturned ? "interest returned" : "declined";
 
   const adminWarning = await sendAdminMatchNotification({
     subject: `Match request ${decisionLabel}: ${fromId} → ${toId}`,
-    heading: `Match Request ${approved ? "Approved" : "Declined"}`,
+    heading: interestReturned ? "Interest Returned" : "Match Request Declined",
     intro,
     requester,
     recipient,
+    includeWaliDetails: false,
   });
   if (adminWarning) warnings.push(adminWarning);
 
   const requesterWarning = await sendRequesterDecisionNotification({
-    approved,
+    interestReturned,
     requesterEmail,
     recipientShortId: toId,
   });
   if (requesterWarning) warnings.push(requesterWarning);
+
+  return warnings;
+}
+
+const WITHDRAWN_NOTIFICATION_BODY =
+  "This member is currently proceeding with another introduction, so this request has been closed.";
+
+async function sendWithdrawnRequestNotifications({
+  admin,
+  withdrawnRequests,
+  activeMaleShortId,
+  activeFemaleShortId,
+}: {
+  admin: AdminSupabaseClient;
+  withdrawnRequests: Array<{
+    id: string;
+    male_short_id: string;
+    female_short_id: string;
+    requested_by_short_id: string | null;
+  }>;
+  activeMaleShortId: string;
+  activeFemaleShortId: string;
+}) {
+  const warnings: string[] = [];
+  const activeShortIds = new Set([activeMaleShortId, activeFemaleShortId]);
+  const notifiedEmails = new Set<string>();
+
+  for (const withdrawn of withdrawnRequests) {
+    const pairShortIds = [
+      withdrawn.male_short_id,
+      withdrawn.female_short_id,
+    ] as const;
+
+    for (const shortId of pairShortIds) {
+      if (activeShortIds.has(shortId)) {
+        continue;
+      }
+
+      const participant = await getMatchParticipant(admin, shortId);
+      const email = participant?.email?.trim();
+
+      if (!email || notifiedEmails.has(email)) {
+        if (!email) {
+          warnings.push(`Withdrawn notification email not found for ${shortId}`);
+        }
+        continue;
+      }
+
+      notifiedEmails.add(email);
+
+      const warning = await sendParticipantStatusNotification({
+        email,
+        role: "Member",
+        subject: "Update on your match request",
+        heading: "Request closed",
+        body: WITHDRAWN_NOTIFICATION_BODY,
+      });
+      if (warning) warnings.push(warning);
+    }
+  }
+
+  return warnings;
+}
+
+async function sendActivationEmails({
+  fromId,
+  toId,
+  requester,
+  recipient,
+  requesterEmail,
+  recipientEmail,
+}: {
+  fromId: string;
+  toId: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+  requesterEmail: string | null;
+  recipientEmail: string | null;
+}) {
+  const warnings: string[] = [];
+
+  const adminWarning = await sendAdminMatchNotification({
+    subject: `Active introduction: ${fromId} ↔ ${toId}`,
+    heading: "Introduction Now Active",
+    intro:
+      "Both members have confirmed this introduction. Wali/guarantor details are included below for facilitation.",
+    requester,
+    recipient,
+    includeWaliDetails: true,
+  });
+  if (adminWarning) warnings.push(adminWarning);
+
+  for (const [email, role, otherShortId] of [
+    [requesterEmail, "Requester", toId],
+    [recipientEmail, "Recipient", fromId],
+  ] as const) {
+    const warning = await sendParticipantStatusNotification({
+      email,
+      role,
+      subject: "Your introduction is now active",
+      heading: "Introduction started",
+      body: `Your introduction with profile <strong>${otherShortId}</strong> is now active. Our admin team will guide the next steps and facilitate contact through the appropriate channels.`,
+    });
+    if (warning) warnings.push(warning);
+  }
 
   return warnings;
 }
@@ -480,13 +612,35 @@ async function sendAdminStatusChangeEmails({
   });
   if (adminWarning) warnings.push(adminWarning);
 
-  if (newStatus === "approved" || newStatus === "rejected") {
+  const normalizedNewStatus = normalizeMatchStatus(newStatus);
+
+  if (
+    normalizedNewStatus === MATCH_STATUS.interestReturned ||
+    newStatus === "rejected"
+  ) {
     const requesterWarning = await sendRequesterDecisionNotification({
-      approved: newStatus === "approved",
+      interestReturned: normalizedNewStatus === MATCH_STATUS.interestReturned,
       requesterEmail,
       recipientShortId: toId,
     });
     if (requesterWarning) warnings.push(requesterWarning);
+    return warnings;
+  }
+
+  if (normalizedNewStatus === MATCH_STATUS.unmatched) {
+    for (const [email, role, otherShortId] of [
+      [requesterEmail, "Requester", toId],
+      [recipientEmail, "Recipient", fromId],
+    ] as const) {
+      const warning = await sendParticipantStatusNotification({
+        email,
+        role,
+        subject: "Your introduction has ended",
+        heading: "Introduction ended",
+        body: `Your introduction with profile <strong>${otherShortId}</strong> has ended. You may browse and send new requests when you are ready.`,
+      });
+      if (warning) warnings.push(warning);
+    }
     return warnings;
   }
 
@@ -573,9 +727,19 @@ export async function requestMatch({
 
     const { data: requesterProfile } = await supabase
       .from("profiles")
-      .select("phone, gender")
+      .select(
+        "phone, gender, browse_visible, active_introduction_request_id"
+      )
       .eq("id", user.id)
       .single();
+
+    if (hasActiveIntroduction(requesterProfile ?? {})) {
+      return {
+        success: false,
+        message:
+          "You currently have an active introduction and cannot send new requests until it ends.",
+      };
+    }
 
     const requestedParticipant = await getMatchParticipant(admin, profileShortId);
 
@@ -607,6 +771,19 @@ export async function requestMatch({
       return {
         success: false,
         message: "This profile is not available for match requests",
+      };
+    }
+
+    if (
+      hasActiveIntroduction({
+        browse_visible: requestedParticipant.browseVisible,
+        active_introduction_request_id:
+          requestedParticipant.activeIntroductionRequestId,
+      })
+    ) {
+      return {
+        success: false,
+        message: "This profile is not currently available for match requests",
       };
     }
 
@@ -801,7 +978,10 @@ export async function respondToMatchRequest({
       };
     }
 
-    const newStatus = decision === "approve" ? "approved" : "rejected";
+    const newStatus =
+      decision === "approve"
+        ? MATCH_STATUS.interestReturned
+        : MATCH_STATUS.rejected;
 
     const admin = createAdminSupabaseClient();
     if (!admin) {
@@ -812,9 +992,17 @@ export async function respondToMatchRequest({
       };
     }
 
+    const updatePayload =
+      decision === "approve"
+        ? {
+            status: newStatus,
+            interest_returned_at: new Date().toISOString(),
+          }
+        : { status: newStatus };
+
     const { error: updateError } = await admin
       .from("match_requests")
-      .update({ status: newStatus })
+      .update(updatePayload)
       .eq("id", requestId);
 
     if (updateError) {
@@ -838,24 +1026,24 @@ export async function respondToMatchRequest({
       recipientParticipant?.phone || ""
     );
 
-    const approved = decision === "approve";
-    const decisionLabel = approved ? "approved" : "declined";
+    const interestReturned = decision === "approve";
+    const decisionLabel = interestReturned ? "returned interest on" : "declined";
 
     const emailWarnings = await sendMatchDecisionEmails({
-      approved,
+      interestReturned,
       fromId,
       toId,
       requester,
       recipient,
       requesterEmail: requesterParticipant?.email ?? null,
-      intro: `The recipient has ${decisionLabel} this match request.`,
+      intro: `The recipient has ${decisionLabel} this match request. No wali details are shared at this stage.`,
     });
 
     return {
       success: true,
       message: formatMessageWithEmailWarnings(
-        approved
-          ? "Match request approved. The requester and admin team have been notified."
+        interestReturned
+          ? "Interest returned. The requester and admin team have been notified."
           : "Match request declined. The requester and admin team have been notified.",
         emailWarnings
       ),
@@ -869,13 +1057,182 @@ export async function respondToMatchRequest({
 }
 
 const ADMIN_MATCH_STATUSES = new Set([
-  "pending",
+  MATCH_STATUS.pending,
+  MATCH_STATUS.interestReturned,
   "approved",
-  "contacted",
-  "completed",
-  "rejected",
-  "expired",
+  MATCH_STATUS.active,
+  MATCH_STATUS.contacted,
+  MATCH_STATUS.completed,
+  MATCH_STATUS.unmatched,
+  MATCH_STATUS.rejected,
+  MATCH_STATUS.expired,
+  MATCH_STATUS.withdrawn,
 ]);
+
+type ActivateRpcResult = {
+  ok: boolean;
+  message?: string;
+  withdrawn_count?: number;
+  male_user_id?: string;
+  female_user_id?: string;
+};
+
+export async function activateMatchIntroduction({
+  requestId,
+}: {
+  requestId: string;
+}) {
+  try {
+    const auth = await assertProfileVerified();
+    if (!auth.ok) {
+      return { success: false, message: auth.message };
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const user = auth.user;
+
+    const { data: myCV } = await supabase
+      .from("cvs")
+      .select("short_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!myCV?.short_id) {
+      return { success: false, message: "Your CV was not found" };
+    }
+
+    const admin = createAdminSupabaseClient();
+    if (!admin) {
+      return {
+        success: false,
+        message:
+          "Server configuration is incomplete. Add SUPABASE_SERVICE_ROLE_KEY.",
+      };
+    }
+
+    const { data: request, error: fetchError } = await admin
+      .from("match_requests")
+      .select("*")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (fetchError || !request) {
+      return { success: false, message: "Match request not found" };
+    }
+
+    if (request.requested_by_short_id !== myCV.short_id) {
+      return {
+        success: false,
+        message:
+          "Only the member who sent the original interest can begin the introduction",
+      };
+    }
+
+    if (normalizeMatchStatus(request.status) !== MATCH_STATUS.interestReturned) {
+      return {
+        success: false,
+        message: "This interest is not ready to begin an introduction",
+      };
+    }
+
+    if (request.interest_returned_at) {
+      const selectionDeadline =
+        new Date(request.interest_returned_at).getTime() +
+        SELECTION_WINDOW_HOURS * 60 * 60 * 1000;
+
+      if (Date.now() > selectionDeadline) {
+        return {
+          success: false,
+          message:
+            "The selection window for this returned interest has passed. Please send a fresh request if the profile is still available.",
+        };
+      }
+    }
+
+    const { data: toWithdraw } = await admin
+      .from("match_requests")
+      .select("id, male_short_id, female_short_id, requested_by_short_id")
+      .neq("id", requestId)
+      .in("status", [MATCH_STATUS.pending, MATCH_STATUS.interestReturned, "approved"])
+      .or(
+        `male_short_id.in.(${request.male_short_id},${request.female_short_id}),female_short_id.in.(${request.male_short_id},${request.female_short_id})`
+      );
+
+    const { data: rpcData, error: rpcError } = await admin.rpc(
+      "activate_match_introduction",
+      {
+        p_request_id: requestId,
+        p_activator_user_id: user.id,
+      }
+    );
+
+    if (rpcError) {
+      console.error("Activate introduction RPC error:", rpcError);
+      return {
+        success: false,
+        message: "Failed to begin introduction. Please try again.",
+      };
+    }
+
+    const rpcResult = rpcData as ActivateRpcResult;
+
+    if (!rpcResult?.ok) {
+      return {
+        success: false,
+        message:
+          rpcResult?.message ||
+          "Could not begin introduction. You may already have an active introduction.",
+      };
+    }
+
+    const { fromId, toId } = getMatchDirection(request);
+    const [requesterParticipant, recipientParticipant] = await Promise.all([
+      getMatchParticipant(admin, fromId),
+      getMatchParticipant(admin, toId),
+    ]);
+
+    const requester = buildPartyDetailsFromCv(
+      fromId,
+      requesterParticipant?.cvData || {},
+      requesterParticipant?.phone || ""
+    );
+    const recipient = buildPartyDetailsFromCv(
+      toId,
+      recipientParticipant?.cvData || {},
+      recipientParticipant?.phone || ""
+    );
+
+    const emailWarnings = [
+      ...(await sendActivationEmails({
+        fromId,
+        toId,
+        requester,
+        recipient,
+        requesterEmail: requesterParticipant?.email ?? null,
+        recipientEmail: recipientParticipant?.email ?? null,
+      })),
+      ...(await sendWithdrawnRequestNotifications({
+        admin,
+        withdrawnRequests: toWithdraw ?? [],
+        activeMaleShortId: request.male_short_id,
+        activeFemaleShortId: request.female_short_id,
+      })),
+    ];
+
+    return {
+      success: true,
+      message: formatMessageWithEmailWarnings(
+        "Introduction started. Wali details have been shared with the admin team and both members have been notified.",
+        emailWarnings
+      ),
+    };
+  } catch (error: unknown) {
+    console.error("Activate introduction error:", error);
+    const message =
+      error instanceof Error ? error.message : "Something went wrong";
+    return { success: false, message };
+  }
+}
 
 export async function updateAdminMatchStatus({
   requestId,
@@ -889,7 +1246,9 @@ export async function updateAdminMatchStatus({
     return { success: false, message: adminCheck.message };
   }
 
-  if (!ADMIN_MATCH_STATUSES.has(newStatus)) {
+  const normalizedRequestedStatus = normalizeMatchStatus(newStatus);
+
+  if (!ADMIN_MATCH_STATUSES.has(normalizedRequestedStatus)) {
     return { success: false, message: "Invalid status" };
   }
 
@@ -911,18 +1270,58 @@ export async function updateAdminMatchStatus({
     return { success: false, message: "Match request not found" };
   }
 
-  if (existingRequest.status === newStatus) {
-    return { success: true, message: `Status is already ${newStatus}` };
+  const normalizedNewStatus = normalizedRequestedStatus;
+  const normalizedPreviousStatus = normalizeMatchStatus(existingRequest.status);
+
+  if (normalizedPreviousStatus === normalizedNewStatus) {
+    return { success: true, message: `Status is already ${normalizedNewStatus}` };
   }
 
-  const { error } = await admin
-    .from("match_requests")
-    .update({ status: newStatus })
-    .eq("id", requestId);
+  if (
+    normalizedPreviousStatus === MATCH_STATUS.active &&
+    (normalizedNewStatus === MATCH_STATUS.unmatched ||
+      normalizedNewStatus === MATCH_STATUS.completed)
+  ) {
+    const { data: rpcData, error: rpcError } = await admin.rpc(
+      "end_match_introduction",
+      {
+        p_request_id: requestId,
+        p_new_status: normalizedNewStatus,
+      }
+    );
 
-  if (error) {
-    console.error("Admin match status update error:", error);
-    return { success: false, message: "Failed to update status" };
+    const rpcResult = rpcData as { ok?: boolean; message?: string };
+
+    if (rpcError || !rpcResult?.ok) {
+      console.error("End introduction RPC error:", rpcError ?? rpcResult);
+      return {
+        success: false,
+        message:
+          rpcResult?.message || "Failed to end active introduction",
+      };
+    }
+  } else if (normalizedNewStatus === MATCH_STATUS.active) {
+    return {
+      success: false,
+      message:
+        "Active introductions must be started by the member who sent the original interest.",
+    };
+  } else {
+    const updatePayload: Record<string, string> = { status: normalizedNewStatus };
+
+    if (normalizedNewStatus === MATCH_STATUS.interestReturned) {
+      updatePayload.interest_returned_at = new Date().toISOString();
+    }
+
+    const { error } = await admin
+      .from("match_requests")
+      .update(updatePayload)
+      .eq("id", requestId);
+
+    if (error) {
+      console.error("Admin match status update error:", error);
+      return { success: false, message: "Failed to update status" };
+    }
   }
 
   const { fromId, toId } = getMatchDirection(existingRequest);
@@ -944,7 +1343,7 @@ export async function updateAdminMatchStatus({
 
   const emailWarnings = await sendAdminStatusChangeEmails({
     previousStatus: existingRequest.status,
-    newStatus,
+    newStatus: normalizedNewStatus,
     fromId,
     toId,
     requester,
@@ -956,7 +1355,7 @@ export async function updateAdminMatchStatus({
   return {
     success: true,
     message: formatMessageWithEmailWarnings(
-      `Status updated to ${newStatus}.`,
+      `Status updated to ${normalizedNewStatus}.`,
       emailWarnings
     ),
   };

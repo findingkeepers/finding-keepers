@@ -1,41 +1,25 @@
 import {
-  getEffectiveMatchStatus,
-  isPendingExpired,
-} from "@/lib/match-expiry";
+  blocksNewRequestToPair,
+  countsTowardInterestQuota,
+  INTEREST_QUOTA_STATUSES,
+  MATCH_STATUS,
+} from "@/lib/match-status";
 
 export const MAX_ACTIVE_MATCH_REQUESTS = 3;
 
-export const ACTIVE_MATCH_STATUSES = [
-  "pending",
+/** DB statuses queried when counting outbound interest quota (includes legacy approved). */
+export const INTEREST_QUOTA_DB_STATUSES = [
+  MATCH_STATUS.pending,
+  MATCH_STATUS.interestReturned,
   "approved",
-  "contacted",
 ] as const;
 
-export type ActiveMatchStatus = (typeof ACTIVE_MATCH_STATUSES)[number];
+export const ACTIVE_MATCH_STATUSES = INTEREST_QUOTA_DB_STATUSES;
 
-export function isActiveMatchStatus(status: string): status is ActiveMatchStatus {
-  return ACTIVE_MATCH_STATUSES.includes(status as ActiveMatchStatus);
-}
+export {
+  blocksNewRequestToPair,
+  countsTowardInterestQuota as countsTowardActiveQuota,
+  INTEREST_QUOTA_STATUSES,
+};
 
-export function countsTowardActiveQuota(
-  status: string,
-  createdAt: string,
-  now: number = Date.now()
-) {
-  const effectiveStatus = getEffectiveMatchStatus(status, createdAt, now);
-  return isActiveMatchStatus(effectiveStatus);
-}
-
-export function blocksNewRequestToPair(
-  status: string,
-  createdAt: string,
-  now: number = Date.now()
-) {
-  if (status === "rejected") {
-    return true;
-  }
-
-  return countsTowardActiveQuota(status, createdAt, now);
-}
-
-export { isPendingExpired };
+export { isPendingExpired } from "@/lib/match-expiry";

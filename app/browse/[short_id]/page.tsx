@@ -17,10 +17,12 @@ import { getBrowsableProfile } from '@/app/actions/browse';
 import { expireStaleMatchRequests, requestMatch } from '@/app/actions/match';
 import { showMatchResultToast } from '@/lib/match-notifications';
 import {
+  ACTIVE_MATCH_STATUSES,
   blocksNewRequestToPair,
   countsTowardActiveQuota,
   MAX_ACTIVE_MATCH_REQUESTS,
 } from '@/lib/match-limits';
+import { hasActiveIntroduction, MATCH_STATUS, normalizeMatchStatus } from '@/lib/match-status';
 import {
   formatPendingExpiryHint,
   getEffectiveMatchStatus,
@@ -65,9 +67,17 @@ export default function ViewProfilePage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('verification_status')
+        .select(
+          'verification_status, browse_visible, active_introduction_request_id'
+        )
         .eq('id', user.id)
         .single();
+
+      if (hasActiveIntroduction(profile ?? {})) {
+        setMatchBlockedReason(
+          'You currently have an active introduction and cannot send new requests until it ends.'
+        );
+      }
 
       if (!profile || profile.verification_status !== 'verified') {
         router.push('/dashboard');
@@ -159,7 +169,7 @@ export default function ViewProfilePage() {
             .from('match_requests')
             .select('id, status, created_at')
             .eq('requested_by_short_id', current)
-            .in('status', ['pending', 'approved', 'contacted']);
+            .in('status', [...ACTIVE_MATCH_STATUSES]);
 
           const activeRequestCount =
             activeRequests?.filter((request) =>
@@ -222,7 +232,7 @@ export default function ViewProfilePage() {
             'This match request was declined and cannot be sent again.'
           );
         } else {
-          setPairMatchStatus('approved');
+          setPairMatchStatus(MATCH_STATUS.interestReturned);
         }
       } else {
         toast.error(result.message || 'Could not update match request');
@@ -359,7 +369,7 @@ export default function ViewProfilePage() {
                         disabled={responding}
                         onClick={() => handleRespond('approve')}
                       >
-                        Approve
+                        Return interest
                       </Button>
                       <Button
                         variant="outline"
@@ -370,6 +380,15 @@ export default function ViewProfilePage() {
                         Decline
                       </Button>
                     </div>
+                  </div>
+                ) : pairMatchStatus &&
+                  normalizeMatchStatus(pairMatchStatus) ===
+                    MATCH_STATUS.interestReturned ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <StatusBadge status={pairMatchStatus} />
+                    <p className="text-center text-xs text-muted-foreground">
+                      Interest returned — begin the introduction from your sent requests
+                    </p>
                   </div>
                 ) : pairMatchStatus ? (
                   <div className="flex flex-col items-center gap-2">
