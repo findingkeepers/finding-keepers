@@ -582,6 +582,73 @@ async function sendActivationEmails({
   return warnings;
 }
 
+async function getRequestsToWithdrawOnActivation(
+  admin: AdminSupabaseClient,
+  request: {
+    id: string;
+    male_short_id: string;
+    female_short_id: string;
+  }
+) {
+  const { data } = await admin
+    .from("match_requests")
+    .select("id, male_short_id, female_short_id, requested_by_short_id")
+    .neq("id", request.id)
+    .in("status", [MATCH_STATUS.pending, MATCH_STATUS.interestReturned, "approved"])
+    .or(
+      `male_short_id.in.(${request.male_short_id},${request.female_short_id}),female_short_id.in.(${request.male_short_id},${request.female_short_id})`
+    );
+
+  return data ?? [];
+}
+
+async function sendIntroductionActivationNotifications({
+  admin,
+  request,
+  fromId,
+  toId,
+  requester,
+  recipient,
+  requesterEmail,
+  recipientEmail,
+  withdrawnRequests,
+}: {
+  admin: AdminSupabaseClient;
+  request: {
+    male_short_id: string;
+    female_short_id: string;
+  };
+  fromId: string;
+  toId: string;
+  requester: PartyDetails;
+  recipient: PartyDetails;
+  requesterEmail: string | null;
+  recipientEmail: string | null;
+  withdrawnRequests: Array<{
+    id: string;
+    male_short_id: string;
+    female_short_id: string;
+    requested_by_short_id: string | null;
+  }>;
+}) {
+  return [
+    ...(await sendActivationEmails({
+      fromId,
+      toId,
+      requester,
+      recipient,
+      requesterEmail,
+      recipientEmail,
+    })),
+    ...(await sendWithdrawnRequestNotifications({
+      admin,
+      withdrawnRequests,
+      activeMaleShortId: request.male_short_id,
+      activeFemaleShortId: request.female_short_id,
+    })),
+  ];
+}
+
 async function sendAdminStatusChangeEmails({
   previousStatus,
   newStatus,
@@ -1149,14 +1216,7 @@ export async function activateMatchIntroduction({
       }
     }
 
-    const { data: toWithdraw } = await admin
-      .from("match_requests")
-      .select("id, male_short_id, female_short_id, requested_by_short_id")
-      .neq("id", requestId)
-      .in("status", [MATCH_STATUS.pending, MATCH_STATUS.interestReturned, "approved"])
-      .or(
-        `male_short_id.in.(${request.male_short_id},${request.female_short_id}),female_short_id.in.(${request.male_short_id},${request.female_short_id})`
-      );
+    const toWithdraw = await getRequestsToWithdrawOnActivation(admin, request);
 
     const { data: rpcData, error: rpcError } = await admin.rpc(
       "activate_match_introduction",
@@ -1202,22 +1262,17 @@ export async function activateMatchIntroduction({
       recipientParticipant?.phone || ""
     );
 
-    const emailWarnings = [
-      ...(await sendActivationEmails({
-        fromId,
-        toId,
-        requester,
-        recipient,
-        requesterEmail: requesterParticipant?.email ?? null,
-        recipientEmail: recipientParticipant?.email ?? null,
-      })),
-      ...(await sendWithdrawnRequestNotifications({
-        admin,
-        withdrawnRequests: toWithdraw ?? [],
-        activeMaleShortId: request.male_short_id,
-        activeFemaleShortId: request.female_short_id,
-      })),
-    ];
+    const emailWarnings = await sendIntroductionActivationNotifications({
+      admin,
+      request,
+      fromId,
+      toId,
+      requester,
+      recipient,
+      requesterEmail: requesterParticipant?.email ?? null,
+      recipientEmail: recipientParticipant?.email ?? null,
+      withdrawnRequests: toWithdraw,
+    });
 
     return {
       success: true,
@@ -1277,16 +1332,41 @@ export async function updateAdminMatchStatus({
     return { success: true, message: `Status is already ${normalizedNewStatus}` };
   }
 
+  const { fromId, toId } = getMatchDirection(existingRequest);
+  const [requesterParticipant, recipientParticipant] = await Promise.all([
+    getMatchParticipant(admin, fromId),
+    getMatchParticipant(admin, toId),
+  ]);
+
+  const requester = buildPartyDetailsFromCv(
+    fromId,
+    requesterParticipant?.cvData || {},
+    requesterParticipant?.phone || ""
+  );
+  const recipient = buildPartyDetailsFromCv(
+    toId,
+    recipientParticipant?.cvData || {},
+    recipientParticipant?.phone || ""
+  );
+
+  let withdrawnRequests: Awaited<
+    ReturnType<typeof getRequestsToWithdrawOnActivation>
+  > = [];
+
   if (
     normalizedPreviousStatus === MATCH_STATUS.active &&
-    (normalizedNewStatus === MATCH_STATUS.unmatched ||
-      normalizedNewStatus === MATCH_STATUS.completed)
+    normalizedNewStatus !== MATCH_STATUS.active
   ) {
+    const interimEndStatus =
+      normalizedNewStatus === MATCH_STATUS.completed
+        ? MATCH_STATUS.completed
+        : MATCH_STATUS.unmatched;
+
     const { data: rpcData, error: rpcError } = await admin.rpc(
       "end_match_introduction",
       {
         p_request_id: requestId,
-        p_new_status: normalizedNewStatus,
+        p_new_status: interimEndStatus,
       }
     );
 
@@ -1300,12 +1380,43 @@ export async function updateAdminMatchStatus({
           rpcResult?.message || "Failed to end active introduction",
       };
     }
-  } else if (normalizedNewStatus === MATCH_STATUS.active) {
-    return {
-      success: false,
-      message:
-        "Active introductions must be started by the member who sent the original interest.",
-    };
+
+    if (normalizedNewStatus !== interimEndStatus) {
+      const { error } = await admin
+        .from("match_requests")
+        .update({ status: normalizedNewStatus })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("Admin post-end status update error:", error);
+        return { success: false, message: "Failed to update status" };
+      }
+    }
+  } else if (
+    normalizedNewStatus === MATCH_STATUS.active &&
+    normalizedPreviousStatus !== MATCH_STATUS.active
+  ) {
+    withdrawnRequests = await getRequestsToWithdrawOnActivation(
+      admin,
+      existingRequest
+    );
+
+    const { data: rpcData, error: rpcError } = await admin.rpc(
+      "admin_activate_match_introduction",
+      { p_request_id: requestId }
+    );
+
+    const rpcResult = rpcData as ActivateRpcResult;
+
+    if (rpcError || !rpcResult?.ok) {
+      console.error("Admin activate RPC error:", rpcError ?? rpcResult);
+      return {
+        success: false,
+        message:
+          rpcResult?.message ||
+          "Failed to activate introduction for this match",
+      };
+    }
   } else {
     const updatePayload: Record<string, string> = { status: normalizedNewStatus };
 
@@ -1324,33 +1435,29 @@ export async function updateAdminMatchStatus({
     }
   }
 
-  const { fromId, toId } = getMatchDirection(existingRequest);
-  const [requesterParticipant, recipientParticipant] = await Promise.all([
-    getMatchParticipant(admin, fromId),
-    getMatchParticipant(admin, toId),
-  ]);
-
-  const requester = buildPartyDetailsFromCv(
-    fromId,
-    requesterParticipant?.cvData || {},
-    requesterParticipant?.phone || ""
-  );
-  const recipient = buildPartyDetailsFromCv(
-    toId,
-    recipientParticipant?.cvData || {},
-    recipientParticipant?.phone || ""
-  );
-
-  const emailWarnings = await sendAdminStatusChangeEmails({
-    previousStatus: existingRequest.status,
-    newStatus: normalizedNewStatus,
-    fromId,
-    toId,
-    requester,
-    recipient,
-    requesterEmail: requesterParticipant?.email ?? null,
-    recipientEmail: recipientParticipant?.email ?? null,
-  });
+  const emailWarnings =
+    normalizedNewStatus === MATCH_STATUS.active
+      ? await sendIntroductionActivationNotifications({
+          admin,
+          request: existingRequest,
+          fromId,
+          toId,
+          requester,
+          recipient,
+          requesterEmail: requesterParticipant?.email ?? null,
+          recipientEmail: recipientParticipant?.email ?? null,
+          withdrawnRequests,
+        })
+      : await sendAdminStatusChangeEmails({
+          previousStatus: existingRequest.status,
+          newStatus: normalizedNewStatus,
+          fromId,
+          toId,
+          requester,
+          recipient,
+          requesterEmail: requesterParticipant?.email ?? null,
+          recipientEmail: recipientParticipant?.email ?? null,
+        });
 
   return {
     success: true,

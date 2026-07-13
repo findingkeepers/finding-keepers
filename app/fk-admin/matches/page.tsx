@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { showMatchResultToast } from '@/lib/match-notifications';
 import { MatchDirectionDisplay } from '@/components/match/MatchDirectionDisplay';
 import { updateAdminMatchStatus } from '@/app/actions/match';
-import { normalizeMatchStatus } from '@/lib/match-status';
+import { ADMIN_STATUS_OPTIONS, normalizeMatchStatus } from '@/lib/match-status';
 
 interface MatchRequest {
   id: string;
@@ -34,6 +34,7 @@ export default function AdminMatchesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const fetchMatchRequests = async () => {
     setLoading(true);
@@ -77,16 +78,30 @@ export default function AdminMatchesPage() {
     setFilteredRequests(result);
   }, [searchTerm, statusFilter, requests]);
 
-  const updateStatus = async (id: string, newStatus: string) => {
-    const result = await updateAdminMatchStatus({ requestId: id, newStatus });
-
-    if (!result.success) {
-      toast.error(result.message);
+  const updateStatus = async (
+    id: string,
+    currentStatus: string,
+    newStatus: string
+  ) => {
+    if (normalizeMatchStatus(currentStatus) === normalizeMatchStatus(newStatus)) {
       return;
     }
 
-    showMatchResultToast(result.message, `Status updated successfully.`);
-    fetchMatchRequests();
+    setUpdatingId(id);
+
+    try {
+      const result = await updateAdminMatchStatus({ requestId: id, newStatus });
+
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      showMatchResultToast(result.message, 'Status updated successfully.');
+      await fetchMatchRequests();
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   if (loading) return <LoadingSpinner message="Loading match requests..." />;
@@ -118,15 +133,11 @@ export default function AdminMatchesPage() {
           <Label>Status</Label>
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="interest_returned">Interest returned</option>
-            <option value="active">Active introduction</option>
-            <option value="contacted">Contacted</option>
-            <option value="completed">Completed</option>
-            <option value="unmatched">Introduction ended</option>
-            <option value="withdrawn">Closed</option>
-            <option value="rejected">Rejected</option>
-            <option value="expired">Expired</option>
+            {ADMIN_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
         </div>
         <div className="flex items-end">
@@ -182,17 +193,17 @@ export default function AdminMatchesPage() {
                   <DataTableCell>
                     <Select
                       value={normalizeMatchStatus(req.status)}
-                      onChange={(e) => updateStatus(req.id, e.target.value)}
-                      className="h-9 text-sm"
+                      disabled={updatingId === req.id}
+                      onChange={(e) =>
+                        updateStatus(req.id, req.status, e.target.value)
+                      }
+                      className="h-9 min-w-[180px] text-sm"
                     >
-                      <option value="pending">Pending</option>
-                      <option value="interest_returned">Interest returned</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="completed">Completed</option>
-                      <option value="unmatched">Introduction ended</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="expired">Expired</option>
-                      <option value="withdrawn">Closed</option>
+                      {ADMIN_STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </Select>
                   </DataTableCell>
                 </DataTableRow>

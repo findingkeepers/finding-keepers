@@ -80,6 +80,18 @@ export function hasActiveIntroduction(profile: {
   );
 }
 
+export const ADMIN_STATUS_OPTIONS = [
+  { value: MATCH_STATUS.pending, label: "Pending" },
+  { value: MATCH_STATUS.interestReturned, label: "Interest returned" },
+  { value: MATCH_STATUS.active, label: "Active introduction" },
+  { value: MATCH_STATUS.contacted, label: "Contacted" },
+  { value: MATCH_STATUS.completed, label: "Completed" },
+  { value: MATCH_STATUS.unmatched, label: "Introduction ended" },
+  { value: MATCH_STATUS.withdrawn, label: "Closed" },
+  { value: MATCH_STATUS.rejected, label: "Rejected" },
+  { value: MATCH_STATUS.expired, label: "Expired" },
+] as const;
+
 export function getStatusLabel(status: string) {
   const normalized = normalizeMatchStatus(status);
 
