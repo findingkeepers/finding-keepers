@@ -14,6 +14,7 @@ export function createEmptyCvFormData(): CvFormData {
   return {
     fullName: "",
     gender: "",
+    ageRange: "",
     hkidNumber: "",
     height: "",
     weight: "",

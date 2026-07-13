@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type ProfileCardProps = {
   shortId: string;
+  ageRange?: string;
   occupation?: string;
   education?: string;
   photoUrl?: string | null;
@@ -16,6 +17,7 @@ type ProfileCardProps = {
 
 export function ProfileCard({
   shortId,
+  ageRange,
   occupation,
   education,
   photoUrl,
@@ -51,6 +53,10 @@ export function ProfileCard({
           </div>
 
           <div className="mb-5 space-y-1.5 text-sm text-muted-foreground">
+            <p>
+              <span className="font-medium text-fk-plum">Age Range:</span>{" "}
+              {ageRange || "N/A"}
+            </p>
             <p>
               <span className="font-medium text-fk-plum">Occupation:</span>{" "}
               {occupation || "N/A"}

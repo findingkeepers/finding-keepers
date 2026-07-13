@@ -437,6 +437,7 @@ export default function ViewProfilePage() {
             </div>
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <CVField label="Gender" value={data.gender} />
+              <CVField label="Age Range" value={data.ageRange} />
               <CVField label="Occupation" value={data.occupation} />
               <CVField label="Education" value={data.education} />
             </div>

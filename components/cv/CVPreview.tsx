@@ -59,6 +59,7 @@ export function CVPreview({
           )}
           <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <CVField label="Gender" value={browseData.gender} />
+            <CVField label="Age Range" value={browseData.ageRange} />
             <CVField label="Occupation" value={browseData.occupation} />
             <CVField label="Education" value={browseData.education} />
           </div>

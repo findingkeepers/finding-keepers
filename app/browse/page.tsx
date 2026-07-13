@@ -156,6 +156,7 @@ export default function BrowsePage() {
             <ProfileCard
               key={cv.short_id}
               shortId={cv.short_id}
+              ageRange={cv.ageRange}
               occupation={cv.occupation}
               education={cv.education}
               photoUrl={cv.photo_url}

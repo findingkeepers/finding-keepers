@@ -62,6 +62,7 @@ export function getStepWarnings(step: number, data: FormData): string[] {
     case 1:
       requireText(warnings, data.fullName, "Full Name");
       requireSelection(warnings, data.gender, "Gender");
+      requireSelection(warnings, data.ageRange, "Age range");
       requireText(warnings, data.hkidNumber, "HKID Number");
       break;
 

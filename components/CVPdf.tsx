@@ -72,6 +72,9 @@ export const CVPdf = ({ data }: CVPdfProps) => (
       <Text style={styles.label}>Gender:</Text>
       <Text style={styles.value}>{data.gender}</Text>
 
+      <Text style={styles.label}>Age Range:</Text>
+      <Text style={styles.value}>{data.ageRange}</Text>
+
       <Text style={styles.label}>HKID Number:</Text>
       <Text style={styles.value}>{data.hkidNumber}</Text>
 

@@ -24,7 +24,9 @@ import {
 } from '@/lib/profile-photo';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
+import { getAgeRangeFromDateOfBirth } from '@/lib/age';
 import {
+  AGE_RANGE_OPTIONS,
   ETHNICITY_OPTIONS,
   LEGACY_PARTNER_AGE_UNDER_25,
   PARTNER_AGE_RANGE_OPTIONS,
@@ -64,6 +66,7 @@ export default function CVBuilder() {
   const [removingPhoto, setRemovingPhoto] = useState(false);
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
+  const [lockedAgeRange, setLockedAgeRange] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -100,15 +103,22 @@ export default function CVBuilder() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, gender')
+        .select('full_name, gender, date_of_birth')
         .eq('id', user.id)
         .single();
 
       const registrationGender = profileGenderToCVGender(profile?.gender);
       const registrationName = profile?.full_name?.trim() || '';
+      const registrationAgeRange = profile?.date_of_birth
+        ? getAgeRangeFromDateOfBirth(profile.date_of_birth) || ''
+        : '';
 
       if (registrationGender) {
         setLockedGender(registrationGender);
+      }
+
+      if (registrationAgeRange) {
+        setLockedAgeRange(registrationAgeRange);
       }
 
       const verificationHkidResult = await getUserVerificationHkid();
@@ -144,6 +154,7 @@ export default function CVBuilder() {
           ...loadedData,
           fullName: registrationName || loadedData.fullName || "",
           gender: registrationGender || loadedData.gender || "",
+          ageRange: registrationAgeRange || loadedData.ageRange || "",
           hkidNumber: verificationHkid || loadedData.hkidNumber || "",
           shortID: existingCV.short_id || "",
           photoUrl: existingCV.photo_url || "",
@@ -165,6 +176,10 @@ export default function CVBuilder() {
                 registrationGender ||
                 savedDraft.formData.gender ||
                 baseForm.gender,
+              ageRange:
+                registrationAgeRange ||
+                savedDraft.formData.ageRange ||
+                baseForm.ageRange,
               hkidNumber:
                 verificationHkid ||
                 savedDraft.formData.hkidNumber ||
@@ -185,6 +200,7 @@ export default function CVBuilder() {
             ...normalizeLoadedCvData(draft.formData),
             fullName: registrationName || draft.formData.fullName || "",
             gender: registrationGender || draft.formData.gender || "",
+            ageRange: registrationAgeRange || draft.formData.ageRange || "",
             hkidNumber: verificationHkid || draft.formData.hkidNumber || "",
           })
         );
@@ -198,6 +214,7 @@ export default function CVBuilder() {
           mergeCvFormData(createEmptyCvFormData(), {
             fullName: registrationName,
             gender: registrationGender || "",
+            ageRange: registrationAgeRange || "",
             hkidNumber: verificationHkid,
           })
         );
@@ -507,6 +524,39 @@ export default function CVBuilder() {
         <p className="text-xs text-muted-foreground">
           Set during registration and used for matching. Contact support if this is incorrect.
         </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Age Range</Label>
+        {lockedAgeRange ? (
+          <>
+            <div className="flex h-11 items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-fk-plum">
+              {lockedAgeRange}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Based on your date of birth from registration.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {AGE_RANGE_OPTIONS.map((opt) => (
+                <label key={opt} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="ageRange"
+                    value={opt}
+                    checked={formData.ageRange === opt}
+                    onChange={(e) => handleChange('ageRange', e.target.value)}
+                  />
+                  {opt}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select the range that best describes your current age.
+            </p>
+          </>
+        )}
       </div>
       <div className="space-y-2">
         <Label>HKID Number</Label>

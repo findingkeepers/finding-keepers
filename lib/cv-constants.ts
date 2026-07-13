@@ -16,12 +16,14 @@ export const RESIDENCY_OPTIONS = [
   "Other",
 ] as const;
 
-export const PARTNER_AGE_RANGE_OPTIONS = [
+export const AGE_RANGE_OPTIONS = [
   "21–25 years",
   "Between 25 to 30 years",
   "Between 30 to 35 years",
   "Above 35 years",
 ] as const;
+
+export const PARTNER_AGE_RANGE_OPTIONS = AGE_RANGE_OPTIONS;
 
 export const PARTNER_EDUCATION_OPTIONS = [
   "Secondary School",

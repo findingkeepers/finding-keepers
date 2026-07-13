@@ -34,6 +34,7 @@ function getOwnerProfile(
 export type BrowsableProfileSummary = {
   short_id: string;
   photo_url: string | null;
+  ageRange?: string;
   occupation?: string;
   education?: string;
   ethnicBackground?: string;

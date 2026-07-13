@@ -1,3 +1,5 @@
+import { AGE_RANGE_OPTIONS } from "@/lib/cv-constants";
+
 export const MIN_REGISTRATION_AGE = 21;
 
 export function parseDateOfBirth(value: string): Date | null {
@@ -85,4 +87,33 @@ export function validateRegistrationDateOfBirth(
   }
 
   return { ok: true, dateOfBirth: formatDateInputValue(date), date };
+}
+
+export function getAgeRangeFromAge(age: number): (typeof AGE_RANGE_OPTIONS)[number] {
+  if (age <= 25) {
+    return AGE_RANGE_OPTIONS[0];
+  }
+
+  if (age <= 30) {
+    return AGE_RANGE_OPTIONS[1];
+  }
+
+  if (age <= 35) {
+    return AGE_RANGE_OPTIONS[2];
+  }
+
+  return AGE_RANGE_OPTIONS[3];
+}
+
+export function getAgeRangeFromDateOfBirth(
+  dateOfBirth: string,
+  now: Date = new Date()
+): (typeof AGE_RANGE_OPTIONS)[number] | null {
+  const parsed = parseDateOfBirth(dateOfBirth);
+
+  if (!parsed) {
+    return null;
+  }
+
+  return getAgeRangeFromAge(getAge(parsed, now));
 }

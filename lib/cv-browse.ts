@@ -35,6 +35,7 @@ export function redactCvDataForBrowse(
 }
 
 export type BrowseListFields = {
+  ageRange?: string;
   occupation?: string;
   education?: string;
   ethnicBackground?: string;
@@ -47,6 +48,7 @@ export function pickBrowseListData(
   const redacted = redactCvDataForBrowse(data);
 
   return {
+    ageRange: redacted.ageRange,
     occupation: redacted.occupation,
     education: redacted.education,
     ethnicBackground: redacted.ethnicBackground,
