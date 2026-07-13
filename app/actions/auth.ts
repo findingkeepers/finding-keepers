@@ -11,6 +11,7 @@ import {
   REMEMBER_ME_MAX_AGE_SECONDS,
 } from "@/lib/auth/constants";
 import { isProduction } from "@/lib/auth/cookie-options";
+import { validateRegistrationDateOfBirth } from "@/lib/age";
 import { validatePasswordPolicy } from "@/lib/password";
 import { escapeHtml } from "@/lib/html-escape";
 import {
@@ -339,6 +340,7 @@ export async function registerUser({
   email,
   password,
   full_name,
+  date_of_birth,
   gender,
   phone,
   is_permanent_resident,
@@ -346,6 +348,7 @@ export async function registerUser({
   email: string;
   password: string;
   full_name: string;
+  date_of_birth: string;
   gender: string;
   phone: string;
   is_permanent_resident: boolean;
@@ -379,6 +382,11 @@ export async function registerUser({
     return { ok: false as const, message: phoneCheck.message };
   }
 
+  const dateOfBirthCheck = validateRegistrationDateOfBirth(date_of_birth);
+  if (!dateOfBirthCheck.ok) {
+    return { ok: false as const, message: dateOfBirthCheck.message };
+  }
+
   const admin = createAdminSupabaseClient();
   if (!admin) {
     return {
@@ -390,6 +398,7 @@ export async function registerUser({
 
   const userMetadata = {
     full_name,
+    date_of_birth: dateOfBirthCheck.dateOfBirth,
     gender,
     phone: normalizedPhone,
     is_permanent_resident,
@@ -433,6 +442,7 @@ export async function registerUser({
     id: userId,
     email,
     full_name,
+    date_of_birth: dateOfBirthCheck.dateOfBirth,
     gender,
     phone: normalizedPhone,
     is_permanent_resident,

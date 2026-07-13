@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { checkPhoneAvailable, registerUser } from '@/app/actions/auth';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,12 @@ import { Select } from '@/components/ui/select';
 import { AuthCard } from '@/components/layout/AuthCard';
 import { TermsAgreement } from '@/components/auth/TermsAgreement';
 import { PasswordStrength } from '@/components/ui/password-strength';
+import {
+  formatDateInputValue,
+  getLatestAllowedDateOfBirth,
+  MIN_REGISTRATION_AGE,
+  validateRegistrationDateOfBirth,
+} from '@/lib/age';
 import { validatePasswordPolicy } from '@/lib/password';
 import { toast } from 'sonner';
 
@@ -21,6 +27,15 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const router = useRouter();
+  const maxDateOfBirth = useMemo(
+    () => formatDateInputValue(getLatestAllowedDateOfBirth()),
+    []
+  );
+  const minDateOfBirth = useMemo(() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 120);
+    return formatDateInputValue(date);
+  }, []);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,6 +45,7 @@ export default function RegisterPage() {
     const email = formData.get('email') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
     const full_name = formData.get('full_name') as string;
+    const date_of_birth = formData.get('date_of_birth') as string;
     const gender = formData.get('gender') as string;
     const phone = formData.get('phone') as string;
     const is_permanent_resident = formData.get('is_permanent_resident') === 'yes';
@@ -53,6 +69,13 @@ export default function RegisterPage() {
       return;
     }
 
+    const dateOfBirthCheck = validateRegistrationDateOfBirth(date_of_birth);
+    if (!dateOfBirthCheck.ok) {
+      toast.error(dateOfBirthCheck.message);
+      setLoading(false);
+      return;
+    }
+
     const phoneCheck = await checkPhoneAvailable(phone);
     if (!phoneCheck.available) {
       toast.error(phoneCheck.message || "This phone number is already registered");
@@ -64,6 +87,7 @@ export default function RegisterPage() {
       email,
       password,
       full_name,
+      date_of_birth: dateOfBirthCheck.dateOfBirth,
       gender,
       phone,
       is_permanent_resident,
@@ -103,6 +127,22 @@ export default function RegisterPage() {
         <div className="space-y-2">
           <Label htmlFor="full_name">Full Name</Label>
           <Input id="full_name" name="full_name" placeholder="Ahmed Khan" className="h-11 rounded-xl" required />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="date_of_birth">Date of Birth</Label>
+          <Input
+            id="date_of_birth"
+            name="date_of_birth"
+            type="date"
+            className="h-11 rounded-xl"
+            min={minDateOfBirth}
+            max={maxDateOfBirth}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            You must be at least {MIN_REGISTRATION_AGE} years old to register.
+          </p>
         </div>
 
         <div className="space-y-2">

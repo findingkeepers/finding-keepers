@@ -41,6 +41,10 @@ ADD COLUMN IF NOT EXISTS requested_by_short_id text;
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS is_permanent_resident boolean;
 
+-- 5b) Date of birth on profiles (set at registration; minimum age enforced in app)
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS date_of_birth date;
+
 -- 6) Extra verification fields for non-permanent residents
 ALTER TABLE public.verification_requests
 ADD COLUMN IF NOT EXISTS years_in_hk text,
