@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FilePicker } from "@/components/ui/file-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { NonPrVerificationForm } from "@/lib/non-pr-verification";
@@ -139,27 +140,27 @@ export function VerificationSection({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="hkid-file">Upload HKID Photo/Scan</Label>
-                  <Input
+                  <FilePicker
                     id="hkid-file"
-                    type="file"
                     onChange={(e) =>
                       onHkidFileChange(e.target.files?.[0] || null)
                     }
                     accept=".jpg,.jpeg,.png,.pdf"
-                    className="rounded-xl"
+                    buttonLabel="Browse files"
+                    emptyLabel="No HKID file chosen"
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="payment-file">Upload Payment Proof</Label>
-                  <Input
+                  <FilePicker
                     id="payment-file"
-                    type="file"
                     onChange={(e) =>
                       onPaymentFileChange(e.target.files?.[0] || null)
                     }
                     accept=".jpg,.jpeg,.png,.pdf"
-                    className="rounded-xl"
+                    buttonLabel="Browse files"
+                    emptyLabel="No payment proof chosen"
                     required
                   />
                 </div>

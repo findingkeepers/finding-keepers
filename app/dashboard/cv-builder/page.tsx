@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { FilePicker } from '@/components/ui/file-picker';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
@@ -599,7 +600,13 @@ export default function CVBuilder() {
             </p>
           </div>
         </div>
-        <Input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoSelect} />
+        <FilePicker
+          id="cv-profile-photo"
+          accept="image/jpeg,image/png,image/webp"
+          buttonLabel="Browse photos"
+          emptyLabel="No photo selected"
+          onChange={handlePhotoSelect}
+        />
         <p className="text-xs text-muted-foreground">
           After selecting a photo, you can crop it before upload.
         </p>

@@ -1,4 +1,5 @@
 import { OtherSpecifyField } from "@/components/cv/OtherSpecifyField";
+import { FilePicker } from "@/components/ui/file-picker";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
@@ -100,12 +101,12 @@ export function NonPrVerificationFields({
         <Label htmlFor="visa-file">
           Please upload a copy of your latest valid visa
         </Label>
-        <Input
+        <FilePicker
           id="visa-file"
-          type="file"
           onChange={(e) => onVisaFileChange(e.target.files?.[0] || null)}
           accept=".jpg,.jpeg,.png,.pdf"
-          className="rounded-xl"
+          buttonLabel="Browse files"
+          emptyLabel="No visa file chosen"
           required
         />
       </div>
