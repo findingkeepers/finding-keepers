@@ -247,12 +247,12 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         requireText(warnings, data.waliPhone, "Wali's phone number");
         requireText(warnings, data.waliEmail, "Wali's email");
         requireText(warnings, data.waliAddress, "Wali's home address");
+        requireSelection(
+          warnings,
+          data.showWaliOnProfile,
+          "Public wali display preference"
+        );
       }
-      requireSelection(
-        warnings,
-        data.showWaliOnProfile,
-        "Public wali display preference"
-      );
       break;
 
     default:

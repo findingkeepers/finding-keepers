@@ -18,11 +18,19 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   requiresVerification?: boolean;
+  /** Hide when the member already has a completed CV (e.g. CV Builder). */
+  hideWhenHasCv?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/cv-builder", label: "CV Builder", icon: PenLine, requiresVerification: true },
+  {
+    href: "/dashboard/cv-builder",
+    label: "CV Builder",
+    icon: PenLine,
+    requiresVerification: true,
+    hideWhenHasCv: true,
+  },
   { href: "/dashboard/my-cv", label: "My CV", icon: FileText, requiresVerification: true },
   { href: "/browse", label: "Browse", icon: Search, requiresVerification: true },
   {
@@ -35,6 +43,7 @@ const navItems: NavItem[] = [
 
 type DashboardSidebarProps = {
   isVerified: boolean;
+  hasCompletedCV?: boolean;
   onLogout: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -42,6 +51,7 @@ type DashboardSidebarProps = {
 
 export function DashboardSidebar({
   isVerified,
+  hasCompletedCV = false,
   onLogout,
   mobileOpen = false,
   onMobileClose,
@@ -52,6 +62,10 @@ export function DashboardSidebar({
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
+
+  const visibleNavItems = navItems.filter(
+    (item) => !(item.hideWhenHasCv && hasCompletedCV)
+  );
 
   const sidebarContent = (
     <>
@@ -69,7 +83,7 @@ export function DashboardSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-6">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const disabled = item.requiresVerification && !isVerified;
           const active = isActive(item.href);
 
@@ -91,10 +105,10 @@ export function DashboardSidebar({
               href={item.href}
               onClick={onMobileClose}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors duration-200",
+                "flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
                 active
                   ? "bg-fk-plum text-fk-cream shadow-sm"
-                  : "text-fk-body hover:bg-accent hover:text-fk-plum"
+                  : "text-fk-body hover:bg-accent hover:text-fk-plum hover:shadow-sm"
               )}
             >
               <item.icon className="size-4" />

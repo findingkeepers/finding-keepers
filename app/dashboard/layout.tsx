@@ -20,6 +20,7 @@ export default function DashboardLayout({
 }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
+  const [hasCompletedCV, setHasCompletedCV] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -41,17 +42,25 @@ export default function DashboardLayout({
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("verification_status")
-        .eq("id", user.id)
-        .maybeSingle();
+      const [{ data: profile }, { data: existingCV }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("verification_status")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("cvs")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) {
         return;
       }
 
       setIsVerified(isUserVerified(profile?.verification_status));
+      setHasCompletedCV(Boolean(existingCV?.id));
       setAuthLoading(false);
     };
 
@@ -60,7 +69,7 @@ export default function DashboardLayout({
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -76,7 +85,10 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardLayoutProvider isVerified={isVerified}>
+    <DashboardLayoutProvider
+      isVerified={isVerified}
+      hasCompletedCV={hasCompletedCV}
+    >
       {authLoading ? <DashboardContentSkeleton /> : children}
     </DashboardLayoutProvider>
   );

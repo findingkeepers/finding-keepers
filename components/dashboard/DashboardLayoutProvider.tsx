@@ -19,11 +19,13 @@ export function useDashboardMenu() {
 type DashboardLayoutProviderProps = {
   children: React.ReactNode;
   isVerified: boolean;
+  hasCompletedCV?: boolean;
 };
 
 export function DashboardLayoutProvider({
   children,
   isVerified,
+  hasCompletedCV = false,
 }: DashboardLayoutProviderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -38,6 +40,7 @@ export function DashboardLayoutProvider({
       <div className="flex min-h-screen fk-paper-bg">
         <DashboardSidebar
           isVerified={isVerified}
+          hasCompletedCV={hasCompletedCV}
           onLogout={handleLogout}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}

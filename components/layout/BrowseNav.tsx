@@ -22,7 +22,7 @@ export function BrowseNav() {
         <nav className="flex items-center gap-2">
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-fk-body transition-colors hover:bg-accent"
+            className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-fk-body transition-colors hover:bg-accent hover:text-fk-plum"
           >
             <LayoutDashboard className="size-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -30,14 +30,14 @@ export function BrowseNav() {
           <Link
             href="/browse"
             className={cn(
-              "flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors",
+              "flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all",
               isBrowse
-                ? "bg-fk-plum text-fk-cream"
-                : "text-fk-body hover:bg-accent"
+                ? "bg-fk-plum text-fk-cream shadow-sm"
+                : "border border-fk-gold/30 bg-white/70 text-fk-plum hover:border-fk-gold/50 hover:bg-fk-cream hover:shadow-sm"
             )}
           >
             <Search className="size-4" />
-            <span className="hidden sm:inline">Browse</span>
+            <span>Browse</span>
           </Link>
         </nav>
       </div>
