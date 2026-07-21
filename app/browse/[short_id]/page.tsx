@@ -361,7 +361,11 @@ export default function ViewProfilePage() {
                 <img
                   src={cv.photo_url}
                   alt="Profile"
-                  className="h-full w-full object-cover"
+                  className={
+                    cv.photoIsBlurred
+                      ? "h-full w-full scale-125 object-cover blur-2xl"
+                      : "h-full w-full object-cover"
+                  }
                 />
                 {cv.photoIsBlurred && (
                   <div className="absolute inset-x-0 bottom-0 bg-fk-plum/70 px-3 py-2 text-center text-xs font-medium text-fk-cream">

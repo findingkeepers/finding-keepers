@@ -70,6 +70,14 @@ export function getStepWarnings(step: number, data: FormData): string[] {
         data.photoVisibility,
         "Photo visibility preference"
       );
+      if (
+        data.photoVisibility === "blurred" &&
+        !data.photoBlurUrl?.trim()
+      ) {
+        warnings.push(
+          "Please re-upload your profile photo so a blurred version can be created for browse privacy"
+        );
+      }
       break;
 
     case 2:

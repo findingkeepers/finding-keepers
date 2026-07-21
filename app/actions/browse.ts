@@ -60,11 +60,15 @@ async function loadViewerUnlockPairs(
 
   const myShortId = myCv?.short_id as string | undefined;
   if (!myShortId) {
-    return { myShortId: null as string | null, unlockRequests: [] as Array<{
-      male_short_id: string;
-      female_short_id: string;
-      status: string;
-    }> };
+    return {
+      myShortId: null as string | null,
+      unlockRequests: [] as Array<{
+        male_short_id: string;
+        female_short_id: string;
+        status: string;
+      }>,
+      activePartnerShortId: null as string | null,
+    };
   }
 
   const { data: unlockRequests } = await supabase
@@ -73,6 +77,31 @@ async function loadViewerUnlockPairs(
     .or(`male_short_id.eq.${myShortId},female_short_id.eq.${myShortId}`)
     .in("status", [...PHOTO_UNLOCK_MATCH_STATUSES]);
 
+  const { data: viewerProfile } = await supabase
+    .from("profiles")
+    .select("active_introduction_request_id")
+    .eq("id", viewerUserId)
+    .maybeSingle();
+
+  let activePartnerShortId: string | null = null;
+  const activeRequestId = viewerProfile?.active_introduction_request_id;
+
+  if (activeRequestId) {
+    const { data: activeMatch } = await supabase
+      .from("match_requests")
+      .select("male_short_id, female_short_id, status")
+      .eq("id", activeRequestId)
+      .maybeSingle();
+
+    if (activeMatch && activeMatch.status === "active") {
+      if (activeMatch.male_short_id === myShortId) {
+        activePartnerShortId = activeMatch.female_short_id;
+      } else if (activeMatch.female_short_id === myShortId) {
+        activePartnerShortId = activeMatch.male_short_id;
+      }
+    }
+  }
+
   return {
     myShortId,
     unlockRequests: (unlockRequests ?? []) as Array<{
@@ -80,6 +109,7 @@ async function loadViewerUnlockPairs(
       female_short_id: string;
       status: string;
     }>,
+    activePartnerShortId,
   };
 }
 
@@ -95,11 +125,16 @@ async function resolveBrowsePhotoForViewer({
   canSeeUnblurred: boolean;
 }) {
   const cvData = (cv.data as Record<string, string>) || {};
+  const blurPath =
+    cv.photo_blur_url?.trim() ||
+    cvData.photoBlurUrl?.trim() ||
+    null;
+
   const access = resolvePhotoAccess({
     photoVisibility: cvData.photoVisibility,
     canSeeUnblurred,
     originalPath: cv.photo_url,
-    blurPath: cv.photo_blur_url,
+    blurPath,
   });
 
   if (!access.storagePath) {
@@ -130,10 +165,8 @@ export async function getBrowsableProfiles() {
     .maybeSingle();
 
   const isAdmin = viewerProfile?.role === "admin";
-  const { myShortId, unlockRequests } = await loadViewerUnlockPairs(
-    supabase,
-    auth.user.id
-  );
+  const { myShortId, unlockRequests, activePartnerShortId } =
+    await loadViewerUnlockPairs(supabase, auth.user.id);
 
   const { data: cvs, error } = await supabase
     .from("cvs")
@@ -156,12 +189,18 @@ export async function getBrowsableProfiles() {
         return false;
       }
 
-      if (ownerProfile?.browse_visible === false) {
-        return false;
-      }
-
       if (isAdmin) {
         return true;
+      }
+
+      // Active introduction: viewer may only browse their active partner.
+      if (activePartnerShortId) {
+        return cv.short_id === activePartnerShortId;
+      }
+
+      // Hidden while in an active intro with someone else (not your partner).
+      if (ownerProfile?.browse_visible === false) {
+        return false;
       }
 
       return gendersAreOpposite(viewerProfile?.gender, ownerProfile?.gender);
@@ -215,10 +254,8 @@ export async function getBrowsableProfile(shortId: string) {
     .maybeSingle();
 
   const isAdmin = viewerProfile?.role === "admin";
-  const { myShortId, unlockRequests } = await loadViewerUnlockPairs(
-    supabase,
-    auth.user.id
-  );
+  const { myShortId, unlockRequests, activePartnerShortId } =
+    await loadViewerUnlockPairs(supabase, auth.user.id);
 
   const { data: cv, error } = await supabase
     .from("cvs")
@@ -240,12 +277,30 @@ export async function getBrowsableProfile(shortId: string) {
     return { ok: false as const, message: "Profile not available" };
   }
 
-  if (!isAdmin && targetProfile?.browse_visible === false) {
+  const isActivePartner =
+    Boolean(activePartnerShortId) && shortId === activePartnerShortId;
+
+  // Active introduction: only the partner's profile is accessible.
+  if (!isAdmin && activePartnerShortId && !isActivePartner) {
+    return {
+      ok: false as const,
+      message:
+        "You are in an active introduction. You can only view that member's profile for now.",
+    };
+  }
+
+  // Partner remains viewable even while browse_visible is false for others.
+  if (
+    !isAdmin &&
+    !isActivePartner &&
+    targetProfile?.browse_visible === false
+  ) {
     return { ok: false as const, message: "Profile not available" };
   }
 
   if (
     !isAdmin &&
+    !isActivePartner &&
     !gendersAreOpposite(viewerProfile?.gender, targetProfile?.gender)
   ) {
     return { ok: false as const, message: "Profile not available" };

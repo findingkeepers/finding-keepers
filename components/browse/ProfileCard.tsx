@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type ProfileCardProps = {
   shortId: string;
@@ -39,7 +40,10 @@ export function ProfileCard({
             <img
               src={photoUrl}
               alt="Profile"
-              className="h-full w-full object-cover"
+              className={cn(
+                "h-full w-full object-cover",
+                photoIsBlurred && "scale-125 blur-2xl"
+              )}
             />
             {photoIsBlurred && (
               <div className="absolute inset-x-0 bottom-0 bg-fk-plum/70 px-3 py-1.5 text-center text-xs font-medium text-fk-cream">

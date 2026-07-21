@@ -530,6 +530,13 @@ export default function CVBuilder() {
         return;
       }
 
+      if (payload.photoVisibility === "blurred" && !photoBlurPath) {
+        toast.error(
+          "Please re-upload your photo so we can create the blurred browse version"
+        );
+        return;
+      }
+
       if (isEditing && existingCVId) {
         const { error } = await supabase.from('cvs').update({
           short_id: shortID,

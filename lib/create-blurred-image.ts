@@ -4,13 +4,14 @@
  */
 export async function createBlurredImageBlob(
   file: File | Blob,
-  blurPx = 18
+  blurPx = 28
 ): Promise<Blob> {
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const image = await loadImage(objectUrl);
-    const maxSide = 720;
+    // Smaller canvas + stronger blur makes faces unreadable.
+    const maxSide = 480;
     const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
     const width = Math.max(1, Math.round(image.width * scale));
     const height = Math.max(1, Math.round(image.height * scale));
@@ -24,11 +25,22 @@ export async function createBlurredImageBlob(
       throw new Error("Could not process photo for privacy blur");
     }
 
+    // Downscale first, then blur (two-pass) for heavier privacy.
+    const pass = document.createElement("canvas");
+    pass.width = Math.max(1, Math.round(width / 4));
+    pass.height = Math.max(1, Math.round(height / 4));
+    const passCtx = pass.getContext("2d");
+    if (!passCtx) {
+      throw new Error("Could not process photo for privacy blur");
+    }
+    passCtx.drawImage(image, 0, 0, pass.width, pass.height);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "low";
     ctx.filter = `blur(${blurPx}px)`;
-    ctx.drawImage(image, 0, 0, width, height);
-    // Soft wash so facial detail stays obscured even if blur is light.
+    ctx.drawImage(pass, 0, 0, width, height);
     ctx.filter = "none";
-    ctx.fillStyle = "rgba(247, 242, 236, 0.22)";
+    ctx.fillStyle = "rgba(247, 242, 236, 0.35)";
     ctx.fillRect(0, 0, width, height);
 
     const blob = await new Promise<Blob>((resolve, reject) => {
@@ -38,7 +50,7 @@ export async function createBlurredImageBlob(
           else reject(new Error("Could not create blurred photo"));
         },
         "image/jpeg",
-        0.82
+        0.75
       );
     });
 
