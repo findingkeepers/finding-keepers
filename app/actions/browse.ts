@@ -193,13 +193,13 @@ export async function getBrowsableProfiles() {
         return true;
       }
 
-      // Active introduction: viewer may only browse their active partner.
-      // Their own (and partner) profiles remain visible to everyone else.
+      // Active introduction: viewer may only browse their active partner
+      // (partner is still viewable even though browse_visible is false for others).
       if (activePartnerShortId) {
         return cv.short_id === activePartnerShortId;
       }
 
-      // Optional manual hide (not used for active intros).
+      // Hidden from everyone else while in an active introduction.
       if (ownerProfile?.browse_visible === false) {
         return false;
       }
