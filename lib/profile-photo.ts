@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export const PROFILE_PHOTOS_BUCKET = "profile-photos";
 export const PROFILE_PHOTO_SIGNED_URL_TTL_SECONDS = 60 * 60;
@@ -47,4 +48,19 @@ export async function createProfilePhotoSignedUrl(
   }
 
   return data.signedUrl;
+}
+
+/**
+ * Issues a signed URL via service role after the app has already authorized access.
+ * Used so unblurred originals are never readable through client-side storage RLS.
+ */
+export async function createAuthorizedProfilePhotoSignedUrl(
+  stored: string | null | undefined
+): Promise<string | null> {
+  const admin = createAdminSupabaseClient();
+  if (!admin) {
+    return null;
+  }
+
+  return createProfilePhotoSignedUrl(admin, stored);
 }

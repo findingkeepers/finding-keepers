@@ -18,6 +18,8 @@ import {
 } from "@/lib/non-pr-verification";
 import { clearCvDraft } from "@/lib/cv-draft";
 import { getProfilePhotoStoragePath } from "@/lib/profile-photo";
+import { createBlurredImageBlob } from "@/lib/create-blurred-image";
+import { MAX_PROFILE_PHOTO_BYTES } from "@/lib/cv-constants";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [hkidNumber, setHkidNumber] = useState("");
   const [hkidFile, setHkidFile] = useState<File | null>(null);
   const [paymentFile, setPaymentFile] = useState<File | null>(null);
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [visaFile, setVisaFile] = useState<File | null>(null);
   const [nonPrForm, setNonPrForm] = useState<NonPrVerificationForm>(
     emptyNonPrVerificationForm
@@ -118,8 +121,20 @@ export default function Dashboard() {
       return;
     }
 
-    if (!hkidNumber || !hkidFile || !paymentFile) {
-      toast.error("Please fill all fields and upload both files");
+    if (!hkidNumber || !hkidFile || !paymentFile || !profilePhotoFile) {
+      toast.error(
+        "Please fill all fields and upload HKID, payment proof, and profile photo"
+      );
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(profilePhotoFile.type)) {
+      toast.error("Profile photo must be a JPG, PNG, or WebP image");
+      return;
+    }
+
+    if (profilePhotoFile.size > MAX_PROFILE_PHOTO_BYTES) {
+      toast.error("Profile photo must be 2 MB or smaller");
       return;
     }
 
@@ -192,6 +207,27 @@ export default function Dashboard() {
         .upload(paymentPath, paymentFile);
       if (paymentError) throw paymentError;
 
+      const stamp = Date.now();
+      const profilePhotoPath = `${user.id}/verification_${stamp}.jpg`;
+      const profilePhotoBlurPath = `${user.id}/verification_${stamp}_blur.jpg`;
+      const blurredProfilePhoto = await createBlurredImageBlob(profilePhotoFile);
+
+      const { error: profilePhotoError } = await supabase.storage
+        .from("profile-photos")
+        .upload(profilePhotoPath, profilePhotoFile, {
+          contentType: profilePhotoFile.type || "image/jpeg",
+          upsert: false,
+        });
+      if (profilePhotoError) throw profilePhotoError;
+
+      const { error: profilePhotoBlurError } = await supabase.storage
+        .from("profile-photos")
+        .upload(profilePhotoBlurPath, blurredProfilePhoto, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+      if (profilePhotoBlurError) throw profilePhotoBlurError;
+
       let visaPath: string | null = null;
       if (!isPermanentResident && visaFile) {
         visaPath = `${user.id}/visa_${Date.now()}`;
@@ -206,6 +242,8 @@ export default function Dashboard() {
         hkid_number: hkidNumber,
         hkid_image_path: hkidPath,
         payment_proof_path: paymentPath,
+        profile_photo_path: profilePhotoPath,
+        profile_photo_blur_path: profilePhotoBlurPath,
         status: "pending",
         years_in_hk: null,
         years_in_hk_other: null,
@@ -312,6 +350,7 @@ export default function Dashboard() {
       setVerificationStatus("pending");
       setHkidFile(null);
       setPaymentFile(null);
+      setProfilePhotoFile(null);
       setVisaFile(null);
       setNonPrForm(emptyNonPrVerificationForm());
     } catch (error: unknown) {
@@ -377,6 +416,7 @@ export default function Dashboard() {
         onHkidNumberChange={setHkidNumber}
         onHkidFileChange={setHkidFile}
         onPaymentFileChange={setPaymentFile}
+        onProfilePhotoFileChange={setProfilePhotoFile}
         nonPrForm={nonPrForm}
         onNonPrFormChange={(updates) =>
           setNonPrForm((current) => ({ ...current, ...updates }))

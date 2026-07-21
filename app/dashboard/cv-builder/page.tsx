@@ -17,12 +17,16 @@ import { multiSelectIncludesOther, selectionIsOther } from '@/lib/cv-other';
 import { useDashboardMenu } from '@/components/dashboard/DashboardLayoutProvider';
 import { toast } from 'sonner';
 import { allocateUniqueShortId } from '@/app/actions/cv';
-import { getUserVerificationHkid } from '@/app/actions/verification';
+import {
+  getUserVerificationHkid,
+  getUserVerificationProfilePhoto,
+} from '@/app/actions/verification';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
 import {
   createProfilePhotoSignedUrl,
   getProfilePhotoStoragePath,
 } from '@/lib/profile-photo';
+import { createBlurredImageBlob } from '@/lib/create-blurred-image';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import { getAgeRangeFromDateOfBirth } from '@/lib/age';
@@ -30,13 +34,16 @@ import {
   AGE_RANGE_OPTIONS,
   ETHNICITY_OPTIONS,
   LEGACY_PARTNER_AGE_UNDER_25,
+  MAX_PROFILE_PHOTO_BYTES,
   PARTNER_AGE_RANGE_OPTIONS,
   PARTNER_EDUCATION_OPTIONS,
+  PHOTO_VISIBILITY_OPTIONS,
   RESIDENCY_OPTIONS,
   WALI_INVOLVEMENT_OPTIONS,
   WALI_NO_INVOLVEMENT,
   waliInvolvementRequiresDetails,
 } from '@/lib/cv-constants';
+import { PlatformFeedbackDialog } from '@/components/feedback/PlatformFeedbackDialog';
 import { getStepWarnings, validateFullForm } from '@/lib/cv-validation';
 import {
   clearCvDraft,
@@ -68,6 +75,7 @@ export default function CVBuilder() {
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
   const [lockedAgeRange, setLockedAgeRange] = useState('');
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +138,14 @@ export default function CVBuilder() {
         setLockedHkid(verificationHkid);
       }
 
+      const verificationPhotoResult = await getUserVerificationProfilePhoto();
+      const verificationPhotoPath = verificationPhotoResult.ok
+        ? verificationPhotoResult.photoPath
+        : null;
+      const verificationPhotoBlurPath = verificationPhotoResult.ok
+        ? verificationPhotoResult.photoBlurPath
+        : null;
+
       const { data: existingCV } = await supabase
         .from('cvs')
         .select('*')
@@ -158,7 +174,10 @@ export default function CVBuilder() {
           ageRange: registrationAgeRange || loadedData.ageRange || "",
           hkidNumber: verificationHkid || loadedData.hkidNumber || "",
           shortID: existingCV.short_id || "",
-          photoUrl: existingCV.photo_url || "",
+          photoUrl: existingCV.photo_url || loadedData.photoUrl || "",
+          photoBlurUrl:
+            existingCV.photo_blur_url || loadedData.photoBlurUrl || "",
+          photoVisibility: loadedData.photoVisibility || "",
         });
 
         setIsEditing(editing);
@@ -203,6 +222,12 @@ export default function CVBuilder() {
             gender: registrationGender || draft.formData.gender || "",
             ageRange: registrationAgeRange || draft.formData.ageRange || "",
             hkidNumber: verificationHkid || draft.formData.hkidNumber || "",
+            photoUrl:
+              draft.formData.photoUrl || verificationPhotoPath || "",
+            photoBlurUrl:
+              draft.formData.photoBlurUrl ||
+              verificationPhotoBlurPath ||
+              "",
           })
         );
         setCurrentStep(
@@ -217,6 +242,8 @@ export default function CVBuilder() {
             gender: registrationGender || "",
             ageRange: registrationAgeRange || "",
             hkidNumber: verificationHkid,
+            photoUrl: verificationPhotoPath || "",
+            photoBlurUrl: verificationPhotoBlurPath || "",
           })
         );
       }
@@ -292,8 +319,15 @@ export default function CVBuilder() {
         return;
       }
 
-      const fileName = `${Date.now()}.jpg`;
-      const filePath = `${user.id}/${fileName}`;
+      if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+        toast.error("Profile photo must be 2 MB or smaller");
+        return;
+      }
+
+      const stamp = Date.now();
+      const filePath = `${user.id}/${stamp}.jpg`;
+      const blurPath = `${user.id}/${stamp}_blur.jpg`;
+      const blurred = await createBlurredImageBlob(file);
 
       const { error } = await supabase.storage
         .from('profile-photos')
@@ -303,7 +337,19 @@ export default function CVBuilder() {
         });
       if (error) throw error;
 
-      handleChange('photoUrl', filePath);
+      const { error: blurError } = await supabase.storage
+        .from('profile-photos')
+        .upload(blurPath, blurred, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      if (blurError) throw blurError;
+
+      setFormData((prev) => ({
+        ...prev,
+        photoUrl: filePath,
+        photoBlurUrl: blurPath,
+      }));
       toast.success("Photo uploaded successfully!");
     } catch {
       toast.error("Failed to upload photo");
@@ -318,6 +364,11 @@ export default function CVBuilder() {
 
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       toast.error("Please upload a JPG, PNG, or WebP image");
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      toast.error("Profile photo must be 2 MB or smaller");
       return;
     }
 
@@ -353,22 +404,31 @@ export default function CVBuilder() {
         return;
       }
 
-      if (currentPath) {
+      const blurPath = getProfilePhotoStoragePath(formData.photoBlurUrl);
+      const pathsToRemove = [currentPath, blurPath].filter(
+        (path): path is string => Boolean(path)
+      );
+
+      if (pathsToRemove.length > 0) {
         const { error: storageError } = await supabase.storage
           .from('profile-photos')
-          .remove([currentPath]);
+          .remove(pathsToRemove);
 
         if (storageError) {
           throw storageError;
         }
       }
 
-      handleChange('photoUrl', '');
+      setFormData((prev) => ({
+        ...prev,
+        photoUrl: '',
+        photoBlurUrl: '',
+      }));
 
       if (existingCVId) {
         const { error: cvError } = await supabase
           .from('cvs')
-          .update({ photo_url: null })
+          .update({ photo_url: null, photo_blur_url: null })
           .eq('id', existingCVId);
 
         if (cvError) {
@@ -463,12 +523,19 @@ export default function CVBuilder() {
         .eq('id', user.id);
 
       const photoPath = getProfilePhotoStoragePath(payload.photoUrl);
+      const photoBlurPath = getProfilePhotoStoragePath(payload.photoBlurUrl);
+
+      if (!photoPath) {
+        toast.error("Profile photo is required");
+        return;
+      }
 
       if (isEditing && existingCVId) {
         const { error } = await supabase.from('cvs').update({
           short_id: shortID,
           data: payload,
           photo_url: photoPath,
+          photo_blur_url: photoBlurPath,
         }).eq('id', existingCVId);
         if (error) throw error;
       } else {
@@ -477,6 +544,7 @@ export default function CVBuilder() {
           short_id: shortID,
           data: payload,
           photo_url: photoPath,
+          photo_blur_url: photoBlurPath,
         });
         if (error) throw error;
       }
@@ -502,7 +570,11 @@ export default function CVBuilder() {
         );
       }
 
-      router.replace("/dashboard");
+      if (isEditing) {
+        router.replace("/dashboard");
+      } else {
+        setShowFeedbackDialog(true);
+      }
 
     } catch (error: any) {
       toast.error(error.message || "Failed to save CV");
@@ -569,14 +641,16 @@ export default function CVBuilder() {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Profile Photo (Optional)</Label>
+        <Label>
+          Profile Photo <span className="text-destructive">*</span>
+        </Label>
         <div className="rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4 text-sm leading-relaxed text-fk-body">
           <p>
             Upload a recent, modest photo of yourself that reflects Islamic values of haya.
             Please ensure the picture includes only you and is appropriate for a respectful matrimony setting.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Accepted formats: JPG, PNG · Maximum size: 2 MB (2048 KB)
+            Accepted formats: JPG, PNG · Maximum size: 2 MB (2048 KB). Your original photo is stored securely.
           </p>
           <div className="mt-3 space-y-3 rounded-lg border border-dashed border-fk-gold/30 bg-white/60 p-4">
             <p className="text-xs font-medium text-fk-plum">Example photos</p>
@@ -635,6 +709,40 @@ export default function CVBuilder() {
           </div>
         </div>
       )}
+      <div className="space-y-2 rounded-xl border border-fk-gold/25 bg-fk-cream/40 p-4">
+        <Label>
+          Photo visibility while browsing{" "}
+          <span className="text-destructive">*</span>
+        </Label>
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {PHOTO_VISIBILITY_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className="flex cursor-pointer gap-3 rounded-xl border border-fk-gold/20 bg-white/70 p-3 transition-colors hover:border-fk-gold/40"
+            >
+              <input
+                type="radio"
+                name="photoVisibility"
+                value={option.value}
+                checked={formData.photoVisibility === option.value}
+                onChange={(e) => handleChange("photoVisibility", e.target.value)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block font-medium text-fk-plum">
+                  {option.label}
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  {option.description}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          When someone sends or receives an interest request with you, both of you can view each other&apos;s unblurred photos — even if Blurred was selected.
+        </p>
+      </div>
     </div>
   );
 
@@ -1027,6 +1135,19 @@ export default function CVBuilder() {
           onComplete={handleCroppedPhoto}
         />
       )}
+
+      <PlatformFeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={(open) => {
+          setShowFeedbackDialog(open);
+          if (!open) {
+            router.replace("/dashboard");
+          }
+        }}
+        source="cv_complete"
+        title="CV submitted — how did it go?"
+        description="Optional feedback helps us improve verification, the CV builder, and matching."
+      />
     </div>
   );
 }

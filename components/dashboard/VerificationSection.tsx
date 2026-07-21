@@ -28,6 +28,7 @@ type VerificationSectionProps = {
   onHkidNumberChange: (value: string) => void;
   onHkidFileChange: (file: File | null) => void;
   onPaymentFileChange: (file: File | null) => void;
+  onProfilePhotoFileChange: (file: File | null) => void;
   nonPrForm: NonPrVerificationForm;
   onNonPrFormChange: (updates: Partial<NonPrVerificationForm>) => void;
   onVisaFileChange: (file: File | null) => void;
@@ -44,6 +45,7 @@ export function VerificationSection({
   onHkidNumberChange,
   onHkidFileChange,
   onPaymentFileChange,
+  onProfilePhotoFileChange,
   nonPrForm,
   onNonPrFormChange,
   onVisaFileChange,
@@ -161,6 +163,25 @@ export function VerificationSection({
                     accept=".jpg,.jpeg,.png,.pdf"
                     buttonLabel="Browse files"
                     emptyLabel="No payment proof chosen"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-photo-file">
+                    Profile Photo <span className="text-destructive">*</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    A clear, modest photo of yourself is required for verification.
+                    You can choose later whether it appears blurred or fully visible while others browse.
+                  </p>
+                  <FilePicker
+                    id="profile-photo-file"
+                    onChange={(e) =>
+                      onProfilePhotoFileChange(e.target.files?.[0] || null)
+                    }
+                    accept="image/jpeg,image/png,image/webp"
+                    buttonLabel="Browse photos"
+                    emptyLabel="No profile photo chosen"
                     required
                   />
                 </div>

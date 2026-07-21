@@ -38,7 +38,12 @@ export default function ViewProfilePage() {
   const params = useParams();
   const short_id = params.short_id as string;
 
-  const [cv, setCv] = useState<{ short_id: string; photo_url: string | null; data: Record<string, string> } | null>(null);
+  const [cv, setCv] = useState<{
+    short_id: string;
+    photo_url: string | null;
+    photoIsBlurred?: boolean;
+    data: Record<string, string>;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
@@ -49,6 +54,7 @@ export default function ViewProfilePage() {
   const [pendingIncomingRequestId, setPendingIncomingRequestId] = useState<string | null>(null);
   const [pairMatchStatus, setPairMatchStatus] = useState<string | null>(null);
   const [pendingExpiryHint, setPendingExpiryHint] = useState<string | null>(null);
+  const [confirmInterestOpen, setConfirmInterestOpen] = useState(false);
 
   useEffect(() => {
     const fetchCV = async () => {
@@ -271,6 +277,13 @@ export default function ViewProfilePage() {
         );
         setRequestSent(true);
         setMatchBlockedReason(null);
+        setConfirmInterestOpen(false);
+
+        // Interest unlocks reciprocal unblurred photos — refresh this profile view.
+        const refreshed = await getBrowsableProfile(short_id);
+        if (refreshed.ok) {
+          setCv(refreshed.cv);
+        }
       } else {
         toast.error(result.message || "Failed to send request");
         if (
@@ -344,11 +357,25 @@ export default function ViewProfilePage() {
         <Card className="overflow-hidden py-0 lg:col-span-1">
           <CardContent className="p-6">
             {cv.photo_url ? (
-              <img
-                src={cv.photo_url}
-                alt="Profile"
-                className="mb-4 aspect-square w-full rounded-xl object-cover"
-              />
+              <div className="relative mb-4 aspect-square w-full overflow-hidden rounded-xl">
+                <img
+                  src={cv.photo_url}
+                  alt="Profile"
+                  className="h-full w-full object-cover"
+                />
+                {cv.photoIsBlurred && (
+                  <div className="absolute inset-x-0 bottom-0 bg-fk-plum/70 px-3 py-2 text-center text-xs font-medium text-fk-cream">
+                    Photo blurred until interest is shared
+                  </div>
+                )}
+              </div>
+            ) : cv.photoIsBlurred ? (
+              <div className="mb-4 flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl bg-fk-bg-top px-4 text-center">
+                <User className="size-16 text-fk-mauve/30" strokeWidth={1} />
+                <p className="text-xs text-muted-foreground">
+                  Photo blurred until interest is shared
+                </p>
+              </div>
             ) : (
               <div className="mb-4 flex aspect-square w-full items-center justify-center rounded-xl bg-fk-bg-top">
                 <User className="size-16 text-fk-mauve/30" strokeWidth={1} />
@@ -361,6 +388,9 @@ export default function ViewProfilePage() {
                   <div className="space-y-2">
                     <p className="text-center text-sm font-medium text-fk-plum">
                       You received a match request
+                    </p>
+                    <p className="text-center text-xs text-muted-foreground">
+                      Their unblurred photo is available above. You can review it before responding.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
@@ -401,7 +431,7 @@ export default function ViewProfilePage() {
                   <Button
                     variant="premium"
                     className="h-11 w-full rounded-xl"
-                    onClick={handleRequestMatch}
+                    onClick={() => setConfirmInterestOpen(true)}
                     disabled={
                       sending ||
                       requestSent ||
@@ -413,9 +443,7 @@ export default function ViewProfilePage() {
                       ? "Request Sent"
                       : matchBlockedReason
                         ? "Request Unavailable"
-                        : sending
-                          ? "Sending Request..."
-                          : "Request Match"}
+                        : "Request Match"}
                   </Button>
                 )}
                 {matchBlockedReason && (
@@ -446,6 +474,55 @@ export default function ViewProfilePage() {
       </div>
 
       <BrowseProfileSections data={data} />
+
+      {confirmInterestOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close interest confirmation"
+            className="absolute inset-0 bg-fk-plum/30 backdrop-blur-sm"
+            onClick={() => !sending && setConfirmInterestOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-fk-gold/25 bg-[#faf6f1] p-6 shadow-xl"
+          >
+            <h2 className="font-heading text-xl font-medium text-fk-plum">
+              Confirm interest request
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-fk-body">
+              If you send this request, <strong>your unblurred photo will be shared</strong> with
+              this member, and <strong>you will be able to view their unblurred photo</strong> as
+              well — even if either of you chose a blurred photo for browsing.
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              They can review your photo before deciding to return or decline your interest.
+              Non-photo profile details remain available either way.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl"
+                disabled={sending}
+                onClick={() => setConfirmInterestOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="premium"
+                className="rounded-xl"
+                disabled={sending}
+                onClick={() => void handleRequestMatch()}
+              >
+                {sending ? "Sending..." : "Send interest"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

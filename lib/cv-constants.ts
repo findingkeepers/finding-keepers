@@ -39,6 +39,21 @@ export const LEGACY_PARTNER_AGE_UNDER_25 = "Less than 25 years";
 
 export const MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024;
 
+export const PHOTO_VISIBILITY_OPTIONS = [
+  {
+    value: "visible",
+    label: "Visible",
+    description:
+      "Your photo is shown clearly to eligible members while browsing.",
+  },
+  {
+    value: "blurred",
+    label: "Blurred",
+    description:
+      "Your photo stays blurred on browse until someone sends you an interest request (or you send them one). Unblurred photos are shared only after interest is expressed, and always stored securely.",
+  },
+] as const;
+
 export const WALI_INVOLVEMENT_OPTIONS = [
   "My parents/wali will be involved from the beginning",
   "My parents/wali will be involved if I have found a match",

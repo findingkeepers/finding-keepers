@@ -160,6 +160,7 @@ export default function BrowsePage() {
               occupation={cv.occupation}
               education={cv.education}
               photoUrl={cv.photo_url}
+              photoIsBlurred={cv.photoIsBlurred}
               index={index}
               onView={() => router.push(`/browse/${cv.short_id}`)}
             />

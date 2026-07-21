@@ -11,6 +11,7 @@ type ProfileCardProps = {
   occupation?: string;
   education?: string;
   photoUrl?: string | null;
+  photoIsBlurred?: boolean;
   onView: () => void;
   index?: number;
 };
@@ -21,6 +22,7 @@ export function ProfileCard({
   occupation,
   education,
   photoUrl,
+  photoIsBlurred = false,
   onView,
   index = 0,
 }: ProfileCardProps) {
@@ -33,11 +35,25 @@ export function ProfileCard({
     >
       <Card className="overflow-hidden py-0 transition-shadow duration-300 hover:shadow-md">
         {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt="Profile"
-            className="h-56 w-full object-cover"
-          />
+          <div className="relative h-56 w-full overflow-hidden bg-fk-bg-top">
+            <img
+              src={photoUrl}
+              alt="Profile"
+              className="h-full w-full object-cover"
+            />
+            {photoIsBlurred && (
+              <div className="absolute inset-x-0 bottom-0 bg-fk-plum/70 px-3 py-1.5 text-center text-xs font-medium text-fk-cream">
+                Photo blurred until interest is shared
+              </div>
+            )}
+          </div>
+        ) : photoIsBlurred ? (
+          <div className="flex h-56 w-full flex-col items-center justify-center gap-2 bg-fk-bg-top px-4 text-center">
+            <User className="size-12 text-fk-mauve/40" strokeWidth={1} />
+            <p className="text-xs text-muted-foreground">
+              Photo blurred until interest is shared
+            </p>
+          </div>
         ) : (
           <div className="flex h-56 w-full items-center justify-center bg-fk-bg-top">
             <User className="size-12 text-fk-mauve/40" strokeWidth={1} />

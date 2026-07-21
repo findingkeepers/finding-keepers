@@ -7,12 +7,13 @@ const steps = [
   { number: 1, title: "Enter HKID", description: "Provide your HKID number" },
   { number: 2, title: "Upload HKID", description: "Clear photo or scan" },
   { number: 3, title: "Payment Proof", description: "Upload payment confirmation" },
-  { number: 4, title: "Admin Review", description: "Approval within 24–48 hours" },
+  { number: 4, title: "Profile Photo", description: "Mandatory member photo" },
+  { number: 5, title: "Admin Review", description: "Approval within 24–48 hours" },
 ];
 
 export function VerificationStepper() {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
       {steps.map((step, index) => (
         <motion.div
           key={step.number}

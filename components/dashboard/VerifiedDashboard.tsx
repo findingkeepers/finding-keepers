@@ -1,9 +1,11 @@
 "use client";
 
-import { FileText, Heart, PenLine, Search, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { FileText, Heart, MessageSquare, PenLine, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardHeader } from "./DashboardHeader";
 import { ActionCard } from "./ActionCard";
+import { PlatformFeedbackDialog } from "@/components/feedback/PlatformFeedbackDialog";
 
 type VerifiedDashboardProps = {
   userName: string;
@@ -22,6 +24,7 @@ export function VerifiedDashboard({
 }: VerifiedDashboardProps) {
   const canBrowse = hasCompletedCV || isAdmin;
   const router = useRouter();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-0 sm:px-2">
@@ -105,7 +108,22 @@ export function VerifiedDashboard({
           disabled={!hasCompletedCV}
           disabledMessage="Complete your CV to request matches."
         />
+
+        <ActionCard
+          index={hasCompletedCV ? 5 : 3}
+          title="Share Feedback"
+          description="Tell us what is working and what we should improve."
+          icon={MessageSquare}
+          actionLabel="Give feedback"
+          onAction={() => setFeedbackOpen(true)}
+        />
       </div>
+
+      <PlatformFeedbackDialog
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        source="dashboard"
+      />
     </div>
   );
 }

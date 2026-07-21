@@ -26,6 +26,7 @@ interface VerificationRequest {
   status: string;
   hkid_image_path: string;
   payment_proof_path: string;
+  profile_photo_path: string | null;
   visa_document_path: string | null;
   years_in_hk: string | null;
   years_in_hk_other: string | null;
@@ -64,6 +65,7 @@ export default function AdminVerifications() {
         status,
         hkid_image_path,
         payment_proof_path,
+        profile_photo_path,
         visa_document_path,
         years_in_hk,
         years_in_hk_other,
@@ -266,6 +268,27 @@ export default function AdminVerifications() {
                         >
                           Payment
                         </button>
+                        {req.profile_photo_path && (
+                          <>
+                            <span className="mx-2 text-border">|</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const { data, error } = await supabase.storage
+                                  .from('profile-photos')
+                                  .createSignedUrl(req.profile_photo_path!, 3600);
+                                if (error || !data?.signedUrl) {
+                                  toast.error('Could not open profile photo');
+                                  return;
+                                }
+                                window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+                              }}
+                              className="text-fk-mauve hover:underline"
+                            >
+                              Photo
+                            </button>
+                          </>
+                        )}
                         {req.visa_document_path && (
                           <>
                             <span className="mx-2 text-border">|</span>

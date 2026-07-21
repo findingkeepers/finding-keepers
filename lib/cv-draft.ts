@@ -19,6 +19,8 @@ export function createEmptyCvFormData(): CvFormData {
     height: "",
     weight: "",
     photoUrl: "",
+    photoBlurUrl: "",
+    photoVisibility: "",
     senseOfHumor: "",
     motivation: "",
     changeAboutSelf: "",

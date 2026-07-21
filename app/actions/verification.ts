@@ -8,7 +8,11 @@ import {
 } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
 import { profileStatusFromRequestStatus } from "@/lib/verification";
-import { assertAdmin, assertProfileVerified } from "@/lib/auth/guards";
+import {
+  assertAdmin,
+  assertAuthenticated,
+  assertProfileVerified,
+} from "@/lib/auth/guards";
 import { escapeHtml } from "@/lib/html-escape";
 
 function buildVerifiedEmailHtml(fullName: string) {
@@ -275,6 +279,44 @@ export async function getUserVerificationHkid() {
   }
 
   return { ok: true as const, hkid };
+}
+
+export async function getUserVerificationProfilePhoto() {
+  const auth = await assertAuthenticated();
+  if (!auth.ok) {
+    return {
+      ok: false as const,
+      message: auth.message,
+      photoPath: null as string | null,
+      photoBlurPath: null as string | null,
+    };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("verification_requests")
+    .select("profile_photo_path, profile_photo_blur_path, status")
+    .eq("user_id", auth.user.id)
+    .order("submitted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Verification profile photo lookup error:", error);
+    return {
+      ok: false as const,
+      message: "Could not load verification photo",
+      photoPath: null as string | null,
+      photoBlurPath: null as string | null,
+    };
+  }
+
+  return {
+    ok: true as const,
+    photoPath: data?.profile_photo_path?.trim() || null,
+    photoBlurPath: data?.profile_photo_blur_path?.trim() || null,
+    status: data?.status ?? null,
+  };
 }
 
 export async function updateVerificationStatus({
