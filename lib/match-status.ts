@@ -74,10 +74,9 @@ export function hasActiveIntroduction(profile: {
   active_introduction_request_id?: string | null;
   browse_visible?: boolean | null;
 }) {
-  return (
-    Boolean(profile.active_introduction_request_id) ||
-    profile.browse_visible === false
-  );
+  // Active intro is tracked by active_introduction_request_id only.
+  // Profiles stay visible to other members while an intro is active.
+  return Boolean(profile.active_introduction_request_id);
 }
 
 export const ADMIN_STATUS_OPTIONS = [
