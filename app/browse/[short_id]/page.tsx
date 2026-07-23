@@ -496,13 +496,9 @@ export default function ViewProfilePage() {
               Confirm interest request
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-fk-body">
-              If you send this request, <strong>your unblurred photo will be shared</strong> with
-              this member, and <strong>you will be able to view their unblurred photo</strong> as
-              well — even if either of you chose a blurred photo for browsing.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              They can review your photo before deciding to return or decline your interest.
-              Non-photo profile details remain available either way.
+              They can review your photo before deciding whether to show interest or decline
+              your interest. Other information on your profile would remain available for
+              viewing.
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <Button
