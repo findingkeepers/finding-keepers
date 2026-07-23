@@ -16,8 +16,6 @@ import {
   validateNonPrVerification,
   type NonPrVerificationForm,
 } from "@/lib/non-pr-verification";
-import { clearCvDraft } from "@/lib/cv-draft";
-import { getProfilePhotoStoragePath } from "@/lib/profile-photo";
 import { createBlurredImageBlob } from "@/lib/create-blurred-image";
 import { MAX_PROFILE_PHOTO_BYTES } from "@/lib/cv-constants";
 
@@ -362,41 +360,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteCV = async () => {
-    if (!confirm("Are you sure you want to delete your CV?")) return;
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      clearCvDraft(user.id);
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith("match_request_")) localStorage.removeItem(key);
-      });
-
-      const { data: existingCV } = await supabase
-        .from("cvs")
-        .select("photo_url")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (existingCV?.photo_url) {
-        const photoPath = getProfilePhotoStoragePath(existingCV.photo_url);
-        if (photoPath) {
-          await supabase.storage.from("profile-photos").remove([photoPath]);
-        }
-      }
-
-      await supabase.from("cvs").delete().eq("user_id", user.id);
-      setHasCompletedCV(false);
-      toast.success("CV deleted successfully");
-    } catch {
-      toast.error("Failed to delete CV");
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -433,7 +396,6 @@ export default function Dashboard() {
       userName={userName}
       hasCompletedCV={hasCompletedCV}
       isAdmin={isAdmin}
-      onDeleteCV={handleDeleteCV}
       onMenuClick={onMenuClick}
     />
   );

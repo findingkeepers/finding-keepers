@@ -2,6 +2,7 @@ export const VERIFIED_ONLY_DASHBOARD_ROUTES = [
   "/dashboard/cv-builder",
   "/dashboard/my-cv",
   "/dashboard/my-match-requests",
+  "/dashboard/feedback",
 ] as const;
 
 /** Maps admin verification_request status → profiles.verification_status */

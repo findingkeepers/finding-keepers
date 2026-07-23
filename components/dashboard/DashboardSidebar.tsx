@@ -7,6 +7,7 @@ import {
   Heart,
   Home,
   LogOut,
+  MessageSquare,
   PenLine,
   Search,
   X,
@@ -18,25 +19,44 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   requiresVerification?: boolean;
-  /** Hide when the member already has a completed CV (e.g. CV Builder). */
-  hideWhenHasCv?: boolean;
+  /** Only show when the member does not have a CV yet. */
+  onlyWithoutCv?: boolean;
+  /** Only show when the member already has a CV. */
+  onlyWithCv?: boolean;
 };
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: Home },
   {
-    href: "/dashboard/cv-builder",
-    label: "CV Builder",
-    icon: PenLine,
+    href: "/browse",
+    label: "Browse",
+    icon: Search,
     requiresVerification: true,
-    hideWhenHasCv: true,
   },
-  { href: "/dashboard/my-cv", label: "My CV", icon: FileText, requiresVerification: true },
-  { href: "/browse", label: "Browse", icon: Search, requiresVerification: true },
   {
     href: "/dashboard/my-match-requests",
     label: "Match Requests",
     icon: Heart,
+    requiresVerification: true,
+  },
+  {
+    href: "/dashboard/my-cv",
+    label: "My CV",
+    icon: FileText,
+    requiresVerification: true,
+    onlyWithCv: true,
+  },
+  {
+    href: "/dashboard/cv-builder",
+    label: "CV Builder",
+    icon: PenLine,
+    requiresVerification: true,
+    onlyWithoutCv: true,
+  },
+  {
+    href: "/dashboard/feedback",
+    label: "Share Feedback",
+    icon: MessageSquare,
     requiresVerification: true,
   },
 ];
@@ -63,9 +83,11 @@ export function DashboardSidebar({
     return pathname.startsWith(href);
   };
 
-  const visibleNavItems = navItems.filter(
-    (item) => !(item.hideWhenHasCv && hasCompletedCV)
-  );
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.onlyWithCv && !hasCompletedCV) return false;
+    if (item.onlyWithoutCv && hasCompletedCV) return false;
+    return true;
+  });
 
   const sidebarContent = (
     <>
@@ -132,12 +154,10 @@ export function DashboardSidebar({
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-fk-gold/15 bg-[#faf6f1] lg:flex">
         {sidebarContent}
       </aside>
 
-      {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div

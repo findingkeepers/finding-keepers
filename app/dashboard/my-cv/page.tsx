@@ -5,7 +5,11 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
-import { createProfilePhotoSignedUrl } from '@/lib/profile-photo';
+import {
+  createProfilePhotoSignedUrl,
+  getProfilePhotoStoragePath,
+} from '@/lib/profile-photo';
+import { clearCvDraft } from '@/lib/cv-draft';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -18,10 +22,12 @@ export default function MyCVPage() {
   const [cv, setCv] = useState<{
     short_id: string;
     photo_url: string | null;
+    photo_blur_url?: string | null;
     data: Record<string, string>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { onMenuClick } = useDashboardMenu();
 
   useEffect(() => {
@@ -36,9 +42,9 @@ export default function MyCVPage() {
 
       const { data: myCV } = await supabase
         .from('cvs')
-        .select('short_id, photo_url, data')
+        .select('short_id, photo_url, photo_blur_url, data')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (myCV) {
         const signedPhotoUrl = await createProfilePhotoSignedUrl(
@@ -53,7 +59,7 @@ export default function MyCVPage() {
       setLoading(false);
     };
 
-    fetchMyCV();
+    void fetchMyCV();
   }, [router]);
 
   const handleDownloadPDF = async () => {
@@ -77,6 +83,59 @@ export default function MyCVPage() {
       toast.error('Failed to download PDF');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDeleteCV = async () => {
+    if (!cv) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete your CV? This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      clearCvDraft(user.id);
+
+      const { data: existingCV } = await supabase
+        .from('cvs')
+        .select('photo_url, photo_blur_url, data')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const paths = [
+        getProfilePhotoStoragePath(existingCV?.photo_url),
+        getProfilePhotoStoragePath(existingCV?.photo_blur_url),
+        getProfilePhotoStoragePath(
+          (existingCV?.data as Record<string, string> | null)?.photoBlurUrl
+        ),
+      ].filter((path): path is string => Boolean(path));
+
+      if (paths.length > 0) {
+        await supabase.storage.from('profile-photos').remove(paths);
+      }
+
+      const { error } = await supabase
+        .from('cvs')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast.success('CV deleted successfully');
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error) {
+      console.error('Delete CV error:', error);
+      toast.error('Failed to delete CV');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -117,7 +176,7 @@ export default function MyCVPage() {
               variant="premium"
               className="rounded-xl"
               onClick={handleDownloadPDF}
-              disabled={downloading}
+              disabled={downloading || deleting}
             >
               {downloading ? 'Downloading...' : 'Download PDF'}
             </Button>
@@ -125,8 +184,17 @@ export default function MyCVPage() {
               variant="premium-outline"
               className="rounded-xl"
               onClick={() => router.push('/dashboard/cv-builder')}
+              disabled={deleting}
             >
               Edit CV
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl text-destructive hover:text-destructive"
+              onClick={() => void handleDeleteCV()}
+              disabled={downloading || deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete CV'}
             </Button>
           </>
         }
