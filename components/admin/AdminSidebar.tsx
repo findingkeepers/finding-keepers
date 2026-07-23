@@ -7,6 +7,7 @@ import {
   Heart,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   ShieldCheck,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/fk-admin/verification", label: "Verifications", icon: ShieldCheck },
   { href: "/fk-admin/matches", label: "Matches", icon: Heart },
   { href: "/fk-admin/cvs", label: "CVs", icon: FileText },
+  { href: "/fk-admin/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 type AdminSidebarProps = {

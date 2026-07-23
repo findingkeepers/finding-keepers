@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { downloadCvPdf } from '@/lib/download-cv-pdf';
+import { adminDeleteCv } from '@/app/actions/admin-cv';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
@@ -46,22 +47,24 @@ export default function AdminCVsPage() {
   const [genderFilter, setGenderFilter] = useState('');
   const [occupationFilter, setOccupationFilter] = useState('');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const fetchAllCVs = async () => {
+    setLoading(true);
+    const { data: cvData, error } = await supabase
+      .from('cvs')
+      .select('id, short_id, photo_url, data, created_at, profiles(gender)')
+      .order('created_at', { ascending: false });
+
+    if (!error && cvData) {
+      setCvs(cvData as CV[]);
+      setFilteredCVs(cvData as CV[]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchAllCVs = async () => {
-      const { data: cvData, error } = await supabase
-        .from('cvs')
-        .select('id, short_id, photo_url, data, created_at, profiles(gender)')
-        .order('created_at', { ascending: false });
-
-      if (!error && cvData) {
-        setCvs(cvData as CV[]);
-        setFilteredCVs(cvData as CV[]);
-      }
-      setLoading(false);
-    };
-
-    fetchAllCVs();
+    void fetchAllCVs();
   }, []);
 
   useEffect(() => {
@@ -110,6 +113,29 @@ export default function AdminCVsPage() {
       toast.error('Failed to download PDF');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteCV = async (cv: CV) => {
+    const confirmed = window.confirm(
+      `Delete CV ${cv.short_id} (${cv.data?.fullName || 'unnamed'}) permanently? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(cv.id);
+    try {
+      const result = await adminDeleteCv({ cvId: cv.id });
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(result.message);
+      setCvs((current) => current.filter((item) => item.id !== cv.id));
+    } catch (error) {
+      console.error('Admin CV delete error:', error);
+      toast.error('Failed to delete CV');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -195,15 +221,32 @@ export default function AdminCVsPage() {
                   </DataTableCell>
                   <DataTableCell>{cv.data?.occupation || 'N/A'}</DataTableCell>
                   <DataTableCell>
-                    <Button
-                      variant="premium"
-                      size="sm"
-                      className="rounded-lg"
-                      onClick={() => handleDownloadPDF(cv)}
-                      disabled={downloadingId === cv.id}
-                    >
-                      {downloadingId === cv.id ? "Downloading..." : "Download PDF"}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="premium"
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => handleDownloadPDF(cv)}
+                        disabled={
+                          downloadingId === cv.id || deletingId === cv.id
+                        }
+                      >
+                        {downloadingId === cv.id
+                          ? 'Downloading...'
+                          : 'Download PDF'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg text-destructive hover:text-destructive"
+                        onClick={() => void handleDeleteCV(cv)}
+                        disabled={
+                          downloadingId === cv.id || deletingId === cv.id
+                        }
+                      >
+                        {deletingId === cv.id ? 'Deleting...' : 'Delete'}
+                      </Button>
+                    </div>
                   </DataTableCell>
                 </DataTableRow>
               ))

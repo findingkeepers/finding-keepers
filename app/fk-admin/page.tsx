@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Heart, FileText } from 'lucide-react';
+import { ShieldCheck, Heart, FileText, MessageSquare } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { LoadingSpinner } from '@/components/layout/LoadingSpinner';
 import { AdminStatCard } from '@/components/admin/AdminStatCard';
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <AdminActionCard
           title="Verification Requests"
           description="Review and approve new user verification requests."
@@ -88,11 +88,19 @@ export default function AdminDashboard() {
         />
         <AdminActionCard
           title="Manage CVs"
-          description="View and manage all submitted CVs."
+          description="View, download, and delete submitted CVs."
           icon={FileText}
           actionLabel="View All CVs"
           onAction={() => router.push('/fk-admin/cvs')}
           index={2}
+        />
+        <AdminActionCard
+          title="Platform Feedback"
+          description="Read member ratings and written feedback."
+          icon={MessageSquare}
+          actionLabel="View Feedback"
+          onAction={() => router.push('/fk-admin/feedback')}
+          index={3}
         />
       </div>
     </div>
