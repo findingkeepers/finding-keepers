@@ -7,6 +7,7 @@ import {
   Heart,
   Home,
   LogOut,
+  Mail,
   MessageSquare,
   PenLine,
   Search,
@@ -58,6 +59,11 @@ const navItems: NavItem[] = [
     label: "Share Feedback",
     icon: MessageSquare,
     requiresVerification: true,
+  },
+  {
+    href: "/contact",
+    label: "Contact Us",
+    icon: Mail,
   },
 ];
 

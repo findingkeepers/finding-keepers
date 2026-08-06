@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Search } from "lucide-react";
+import { LayoutDashboard, Mail, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BrowseNav() {
@@ -38,6 +38,13 @@ export function BrowseNav() {
           >
             <Search className="size-4" />
             <span>Browse</span>
+          </Link>
+          <Link
+            href="/contact"
+            className="flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-fk-body transition-colors hover:bg-accent hover:text-fk-plum"
+          >
+            <Mail className="size-4" />
+            <span className="hidden sm:inline">Contact</span>
           </Link>
         </nav>
       </div>

@@ -37,6 +37,11 @@ export function SiteFooter() {
           <p className="fk-eyebrow mb-4 text-fk-gold-light">Contact</p>
           <ul className="space-y-2 text-sm text-fk-cream/85">
             <li>
+              <Link href="/contact" className="hover:text-fk-gold-light">
+                Contact Us
+              </Link>
+            </li>
+            <li>
               <a
                 href="mailto:findingkeepers@connecthk.org"
                 className="hover:text-fk-gold-light"

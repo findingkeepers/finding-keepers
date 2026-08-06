@@ -54,6 +54,18 @@ export const RATE_LIMITS = {
       windowSeconds: 60 * 60,
     },
   },
+  contact: {
+    perIp: {
+      label: "contact form",
+      maxRequests: 5,
+      windowSeconds: 60 * 60,
+    },
+    perEmail: {
+      label: "contact form",
+      maxRequests: 3,
+      windowSeconds: 60 * 60,
+    },
+  },
 } as const;
 
 export type RateLimitCheck =
