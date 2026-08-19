@@ -391,7 +391,7 @@ export default function ViewProfilePage() {
                 {pendingIncomingRequestId ? (
                   <div className="space-y-2">
                     <p className="text-center text-sm font-medium text-fk-plum">
-                      You received a match request
+                      This member expressed interest in you
                     </p>
                     <p className="text-center text-xs text-muted-foreground">
                       Their unblurred photo is available above. You can review it before responding.
@@ -403,7 +403,7 @@ export default function ViewProfilePage() {
                         disabled={responding}
                         onClick={() => handleRespond('approve')}
                       >
-                        Return interest
+                        Interested
                       </Button>
                       <Button
                         variant="outline"
@@ -411,7 +411,7 @@ export default function ViewProfilePage() {
                         disabled={responding}
                         onClick={() => handleRespond('reject')}
                       >
-                        Decline
+                        Not interested
                       </Button>
                     </div>
                   </div>
@@ -421,7 +421,7 @@ export default function ViewProfilePage() {
                   <div className="flex flex-col items-center gap-2">
                     <StatusBadge status={pairMatchStatus} />
                     <p className="text-center text-xs text-muted-foreground">
-                      Interest returned — begin the introduction from your sent requests
+                      Interest returned — initiate the introduction from your sent requests
                     </p>
                   </div>
                 ) : pairMatchStatus ? (
@@ -444,10 +444,10 @@ export default function ViewProfilePage() {
                     }
                   >
                     {requestSent
-                      ? "Request Sent"
+                      ? "Interest sent"
                       : matchBlockedReason
                         ? "Request Unavailable"
-                        : "Request Match"}
+                        : "Express interest"}
                   </Button>
                 )}
                 {matchBlockedReason && (
@@ -522,7 +522,7 @@ export default function ViewProfilePage() {
                 disabled={sending}
                 onClick={() => void handleRequestMatch()}
               >
-                {sending ? "Sending..." : "Send interest"}
+                {sending ? "Sending..." : "Express interest"}
               </Button>
             </div>
           </div>

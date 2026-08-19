@@ -295,7 +295,7 @@ export default function MyMatchRequestsPage() {
                             disabled={respondingId === req.id}
                             onClick={() => handleRespond(req.id, 'approve')}
                           >
-                            Return interest
+                            Interested
                           </Button>
                           <Button
                             variant="outline"
@@ -304,7 +304,7 @@ export default function MyMatchRequestsPage() {
                             disabled={respondingId === req.id}
                             onClick={() => handleRespond(req.id, 'reject')}
                           >
-                            Decline
+                            Not interested
                           </Button>
                         </div>
                       ) : canBeginIntroduction ? (
@@ -315,7 +315,7 @@ export default function MyMatchRequestsPage() {
                           disabled={activatingId === req.id}
                           onClick={() => handleActivate(req.id)}
                         >
-                          Begin introduction
+                          Initiate introduction
                         </Button>
                       ) : activeTab === 'sent' && req.status === 'pending' ? (
                         <span className="text-sm text-muted-foreground">

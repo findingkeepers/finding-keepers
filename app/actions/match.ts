@@ -215,24 +215,38 @@ function buildRecipientRequestEmailHtml({
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
-      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">You received a match request</h1>
-      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
-        Assalamualaikum, someone would like to connect with you on Finding Keepers.
-        Review their profile and decide whether to approve or decline — no contact details are shared at this stage.
+      <h1 style="font-size: 24px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">A profile has expressed interest in you</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Profile <strong>${requesterShortId}</strong> has reviewed your profile and expressed interest in proceeding with an introduction.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        We invite you to review their profile and decide whether you are also interested.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; font-weight: 600; color: #4a2545; margin: 0 0 8px;">If you express mutual interest</p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 12px;">
+        Profile <strong>${requesterShortId}</strong> will be notified and asked to confirm that they would still like to proceed. Once they confirm:
+      </p>
+      <ul style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px; padding-left: 20px;">
+        <li style="margin-bottom: 8px;">If either individual has nominated a wali, the relevant wali’s contact details will be shared for coordination.</li>
+        <li style="margin-bottom: 8px;">If an individual has chosen to proceed without a wali, their own contact details will be shared instead.</li>
+        <li>The Finding Keepers Admin Panel will contact everyone involved and arrange an introductory meeting.</li>
+      </ul>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; font-weight: 600; color: #4a2545; margin: 0 0 8px;">If you decline</p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        The interest will be closed, and no contact details will be shared.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        <strong>Important:</strong> You may proceed with only one interest at a time. If several profiles have expressed interest in you, please review them carefully and select only one profile to proceed with.
       </p>
       <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
-        Profile Short ID: <strong>${requesterShortId}</strong>
+        Please log in to review Profile <strong>${requesterShortId}</strong> and submit your decision.
       </p>
       <a href="${cvUrl}" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin: 0 12px 12px 0;">
-        View their CV
+        Review profile
       </a>
       <a href="${requestsUrl}" style="display: inline-block; background-color: #f7f2ec; color: #4a2545; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px; border: 1px solid #e3cfa0;">
-        Approve or decline
+        Submit your decision
       </a>
-      <hr style="margin: 32px 0; border: none; border-top: 1px solid #e3cfa0;" />
-      <p style="font-family: Arial, sans-serif; font-size: 13px; color: #9ca3af; margin: 0;">
-        If you did not expect this request, you can safely decline it in your dashboard.
-      </p>
     </div>
   `;
 }
@@ -269,21 +283,54 @@ function buildRequesterDecisionEmailHtml({
 }) {
   const appUrl = getAppUrl();
 
+  if (interestReturned) {
+    return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
+      <h1 style="font-size: 24px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">You have received a positive response</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Good news! Profile <strong>${recipientShortId}</strong> is also interested in proceeding with your connection request.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        To continue, please confirm whether you would like to begin the formal introduction process, with the involvement of the walis, where applicable.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; font-weight: 600; color: #4a2545; margin: 0 0 8px;">What happens next?</p>
+      <ol style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px; padding-left: 20px;">
+        <li style="margin-bottom: 8px;">Confirm that you wish to proceed with Profile <strong>${recipientShortId}</strong>.</li>
+        <li style="margin-bottom: 8px;">If you have received positive responses from multiple profiles, select one profile to continue with.</li>
+        <li>The FK Panel will contact the relevant parties and help arrange an introductory meeting.</li>
+      </ol>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Please review the profile and confirm your decision through your account.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        <strong>Important:</strong> You may proceed with only one interest at a time. If several profiles have expressed positive interest in you, please review them carefully and select only one profile to proceed with.
+      </p>
+      <a href="${appUrl}/dashboard/my-match-requests" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px;">
+        Confirm your decision
+      </a>
+    </div>
+  `;
+  }
+
   return `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
       <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
-      <h1 style="font-size: 28px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">
-        ${interestReturned ? "Interest returned on your request" : "Update on your match request"}
-      </h1>
-      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
-        ${
-          interestReturned
-            ? `Profile <strong>${recipientShortId}</strong> has returned your interest. If you have other returned interests, you may choose one introduction to proceed with from your dashboard. Wali details are shared only once an introduction becomes active.`
-            : `Profile <strong>${recipientShortId}</strong> has declined your match request at this time.`
-        }
+      <h1 style="font-size: 24px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">Update on your interest in Profile ${recipientShortId}</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Thank you for expressing interest in Profile <strong>${recipientShortId}</strong>.
       </p>
-      <a href="${appUrl}/dashboard/my-match-requests" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px;">
-        View my match requests
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        The profile has decided not to proceed with the introduction. While this particular connection will not be moving forward, we encourage you to remain positive and continue exploring other suitable profiles.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Your interest in Profile <strong>${recipientShortId}</strong> has now been closed, which means you are free to express interest in another profile.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        We appreciate your participation in the Finding Keepers community and wish you every success in finding a compatible match.
+      </p>
+      <a href="${appUrl}/browse" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px;">
+        Browse profiles
       </a>
     </div>
   `;
@@ -340,8 +387,8 @@ async function sendRequesterDecisionNotification({
   const result = await sendEmail({
     to: requesterEmail,
     subject: interestReturned
-      ? "Interest returned on your match request"
-      : "Update on your match request",
+      ? "YOU HAVE RECEIVED A POSITIVE RESPONSE"
+      : `UPDATE ON YOUR INTEREST IN PROFILE (${recipientShortId})`,
     html: buildRequesterDecisionEmailHtml({
       recipientShortId,
       interestReturned,
@@ -415,7 +462,7 @@ async function sendNewMatchRequestEmails({
   if (recipientEmail) {
     const recipientEmailResult = await sendEmail({
       to: recipientEmail,
-      subject: "You received a match request on Finding Keepers",
+      subject: "A PROFILE HAS EXPRESSED INTEREST IN YOU",
       html: buildRecipientRequestEmailHtml({
         requesterShortId,
       }),
@@ -477,8 +524,34 @@ async function sendMatchDecisionEmails({
   return warnings;
 }
 
-const WITHDRAWN_NOTIFICATION_BODY =
-  "This member is currently proceeding with another introduction, so this request has been closed.";
+function buildWithdrawnInterestEmailHtml(profileShortId: string) {
+  const appUrl = getAppUrl();
+
+  return `
+    <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; color: #2d1b2e;">
+      <p style="font-family: Arial, sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d5a7c;">Finding Keepers</p>
+      <h1 style="font-size: 24px; font-weight: 500; color: #6b3563; margin: 0 0 16px;">An update on your recent interest</h1>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Thank you for letting us know that you were interested in proceeding with Profile <strong>${profileShortId}</strong>.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        Profile <strong>${profileShortId}</strong> has since chosen to proceed with another profile. Since each member may proceed with only one interest at a time, an introduction between you and Profile <strong>${profileShortId}</strong> cannot be arranged at this stage.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        We understand that this may be disappointing. Please be assured that this outcome does not reflect negatively on you or your profile. The timing of responses and each member's individual circumstances may affect which connection moves forward.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 16px;">
+        No contact details have been shared, and you may continue exploring and responding to other suitable profiles through Finding Keepers.
+      </p>
+      <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #5a4a55; margin: 0 0 20px;">
+        We wish you the very best in your search.
+      </p>
+      <a href="${appUrl}/browse" style="display: inline-block; background-color: #4a2545; color: #f7f2ec; font-family: Arial, sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 12px;">
+        Browse profiles
+      </a>
+    </div>
+  `;
+}
 
 async function sendWithdrawnRequestNotifications({
   admin,
@@ -523,14 +596,19 @@ async function sendWithdrawnRequestNotifications({
 
       notifiedEmails.add(email);
 
-      const warning = await sendParticipantStatusNotification({
-        email,
-        role: "Member",
-        subject: "Update on your match request",
-        heading: "Request closed",
-        body: WITHDRAWN_NOTIFICATION_BODY,
+      const otherShortId =
+        pairShortIds.find((id) => id !== shortId) ??
+        activeMaleShortId;
+
+      const result = await sendEmail({
+        to: email,
+        subject: "AN UPDATE ON YOUR RECENT INTEREST",
+        html: buildWithdrawnInterestEmailHtml(otherShortId),
       });
-      if (warning) warnings.push(warning);
+
+      if (!result.ok) {
+        warnings.push(`Member notification failed: ${result.message}`);
+      }
     }
   }
 
