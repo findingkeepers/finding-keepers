@@ -29,9 +29,9 @@ import {
 import { createBlurredImageBlob } from '@/lib/create-blurred-image';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
-import { getAgeRangeFromDateOfBirth } from '@/lib/age';
+import { formatApplicantAge, getAgeFromDateOfBirth } from '@/lib/age';
+import { formatHeightDisplay, type HeightUnit } from '@/lib/height';
 import {
-  AGE_RANGE_OPTIONS,
   ETHNICITY_OPTIONS,
   LEGACY_PARTNER_AGE_UNDER_25,
   MAX_PROFILE_PHOTO_BYTES,
@@ -74,7 +74,7 @@ export default function CVBuilder() {
   const [removingPhoto, setRemovingPhoto] = useState(false);
   const [lockedGender, setLockedGender] = useState('');
   const [lockedHkid, setLockedHkid] = useState('');
-  const [lockedAgeRange, setLockedAgeRange] = useState('');
+  const [lockedAge, setLockedAge] = useState('');
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
 
   useEffect(() => {
@@ -118,16 +118,16 @@ export default function CVBuilder() {
 
       const registrationGender = profileGenderToCVGender(profile?.gender);
       const registrationName = profile?.full_name?.trim() || '';
-      const registrationAgeRange = profile?.date_of_birth
-        ? getAgeRangeFromDateOfBirth(profile.date_of_birth) || ''
+      const registrationAge = profile?.date_of_birth
+        ? String(getAgeFromDateOfBirth(profile.date_of_birth) ?? '')
         : '';
 
       if (registrationGender) {
         setLockedGender(registrationGender);
       }
 
-      if (registrationAgeRange) {
-        setLockedAgeRange(registrationAgeRange);
+      if (registrationAge) {
+        setLockedAge(registrationAge);
       }
 
       const verificationHkidResult = await getUserVerificationHkid();
@@ -171,7 +171,7 @@ export default function CVBuilder() {
           ...loadedData,
           fullName: registrationName || loadedData.fullName || "",
           gender: registrationGender || loadedData.gender || "",
-          ageRange: registrationAgeRange || loadedData.ageRange || "",
+          age: registrationAge || loadedData.age || "",
           hkidNumber: verificationHkid || loadedData.hkidNumber || "",
           shortID: existingCV.short_id || "",
           photoUrl: existingCV.photo_url || loadedData.photoUrl || "",
@@ -196,10 +196,10 @@ export default function CVBuilder() {
                 registrationGender ||
                 savedDraft.formData.gender ||
                 baseForm.gender,
-              ageRange:
-                registrationAgeRange ||
-                savedDraft.formData.ageRange ||
-                baseForm.ageRange,
+              age:
+                registrationAge ||
+                savedDraft.formData.age ||
+                baseForm.age,
               hkidNumber:
                 verificationHkid ||
                 savedDraft.formData.hkidNumber ||
@@ -220,7 +220,7 @@ export default function CVBuilder() {
             ...normalizeLoadedCvData(draft.formData),
             fullName: registrationName || draft.formData.fullName || "",
             gender: registrationGender || draft.formData.gender || "",
-            ageRange: registrationAgeRange || draft.formData.ageRange || "",
+            age: registrationAge || draft.formData.age || "",
             hkidNumber: verificationHkid || draft.formData.hkidNumber || "",
             photoUrl:
               draft.formData.photoUrl || verificationPhotoPath || "",
@@ -240,7 +240,7 @@ export default function CVBuilder() {
           mergeCvFormData(createEmptyCvFormData(), {
             fullName: registrationName,
             gender: registrationGender || "",
-            ageRange: registrationAgeRange || "",
+            age: registrationAge || "",
             hkidNumber: verificationHkid,
             photoUrl: verificationPhotoPath || "",
             photoBlurUrl: verificationPhotoBlurPath || "",
@@ -269,6 +269,21 @@ export default function CVBuilder() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors.length > 0) setErrors([]);
+  };
+
+  const updateHeight = (updates: Record<string, string>) => {
+    setFormData((prev) => {
+      const next = { ...prev, ...updates };
+      const unit: HeightUnit = next.heightUnit === "ft" ? "ft" : "cm";
+      next.height = formatHeightDisplay({
+        unit,
+        cm: next.heightCm,
+        ft: next.heightFt,
+        inches: next.heightIn,
+      });
+      return next;
+    });
     if (errors.length > 0) setErrors([]);
   };
 
@@ -503,6 +518,14 @@ export default function CVBuilder() {
         ...formData,
         gender: enforcedGender,
         hkidNumber: enforcedHkid,
+        age: lockedAge || formData.age,
+        height: formatHeightDisplay({
+          unit: formData.heightUnit === "ft" ? "ft" : "cm",
+          cm: formData.heightCm,
+          ft: formData.heightFt,
+          inches: formData.heightIn,
+        }),
+        weight: "",
       };
 
       let shortID = payload.shortID;
@@ -606,37 +629,92 @@ export default function CVBuilder() {
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Age Range</Label>
-        {lockedAgeRange ? (
+        <Label>Age</Label>
+        {lockedAge ? (
           <>
             <div className="flex h-11 items-center rounded-xl border border-input bg-muted/40 px-3 text-sm text-fk-plum">
-              {lockedAgeRange}
+              {formatApplicantAge(lockedAge)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Based on your date of birth from registration.
+              Calculated from your date of birth at registration.
             </p>
           </>
         ) : (
           <>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {AGE_RANGE_OPTIONS.map((opt) => (
-                <label key={opt} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="ageRange"
-                    value={opt}
-                    checked={formData.ageRange === opt}
-                    onChange={(e) => handleChange('ageRange', e.target.value)}
-                  />
-                  {opt}
-                </label>
-              ))}
-            </div>
+            <Input
+              type="number"
+              min={21}
+              max={120}
+              value={formData.age}
+              onChange={(e) => handleChange("age", e.target.value)}
+              placeholder="e.g. 27"
+              className="h-11 rounded-xl"
+            />
             <p className="text-xs text-muted-foreground">
-              Select the range that best describes your current age.
+              Enter your exact age in years.
             </p>
           </>
         )}
+      </div>
+      <div className="space-y-2">
+        <Label>Height</Label>
+        <div className="flex gap-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="heightUnit"
+              value="cm"
+              checked={(formData.heightUnit || "cm") !== "ft"}
+              onChange={() => updateHeight({ heightUnit: "cm" })}
+            />
+            Centimetres
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="heightUnit"
+              value="ft"
+              checked={formData.heightUnit === "ft"}
+              onChange={() => updateHeight({ heightUnit: "ft" })}
+            />
+            Feet &amp; inches
+          </label>
+        </div>
+        {(formData.heightUnit || "cm") !== "ft" ? (
+          <Input
+            type="number"
+            min={100}
+            max={250}
+            value={formData.heightCm}
+            onChange={(e) => updateHeight({ heightCm: e.target.value })}
+            placeholder="e.g. 175"
+            className="h-11 rounded-xl"
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              type="number"
+              min={3}
+              max={8}
+              value={formData.heightFt}
+              onChange={(e) => updateHeight({ heightFt: e.target.value })}
+              placeholder="ft"
+              className="h-11 rounded-xl"
+            />
+            <Input
+              type="number"
+              min={0}
+              max={11}
+              value={formData.heightIn}
+              onChange={(e) => updateHeight({ heightIn: e.target.value })}
+              placeholder="in"
+              className="h-11 rounded-xl"
+            />
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Enter your exact height. You can use centimetres or feet and inches.
+        </p>
       </div>
       <div className="space-y-2">
         <Label>HKID Number</Label>

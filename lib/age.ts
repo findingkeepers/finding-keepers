@@ -117,3 +117,34 @@ export function getAgeRangeFromDateOfBirth(
 
   return getAgeRangeFromAge(getAge(parsed, now));
 }
+
+export function getAgeFromDateOfBirth(
+  dateOfBirth: string,
+  now: Date = new Date()
+): number | null {
+  const parsed = parseDateOfBirth(dateOfBirth);
+
+  if (!parsed) {
+    return null;
+  }
+
+  const age = getAge(parsed, now);
+  if (age < MIN_REGISTRATION_AGE || age > 120) {
+    return null;
+  }
+
+  return age;
+}
+
+export function formatApplicantAge(age: string | number | null | undefined) {
+  if (age === null || age === undefined || age === "") {
+    return "";
+  }
+
+  const numeric = typeof age === "number" ? age : Number.parseInt(String(age), 10);
+  if (!Number.isFinite(numeric)) {
+    return String(age);
+  }
+
+  return `${numeric} years`;
+}

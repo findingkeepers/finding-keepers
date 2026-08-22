@@ -6,6 +6,8 @@ import {
   WALI_NO_INVOLVEMENT,
   waliInvolvementRequiresDetails,
 } from "@/lib/cv-constants";
+import { MIN_REGISTRATION_AGE } from "@/lib/age";
+import { validateHeight } from "@/lib/height";
 
 type FormData = Record<string, string>;
 
@@ -62,7 +64,19 @@ export function getStepWarnings(step: number, data: FormData): string[] {
     case 1:
       requireText(warnings, data.fullName, "Full Name");
       requireSelection(warnings, data.gender, "Gender");
-      requireSelection(warnings, data.ageRange, "Age range");
+      const age = Number.parseInt(data.age || "", 10);
+      if (!Number.isFinite(age) || age < MIN_REGISTRATION_AGE || age > 120) {
+        warnings.push("Exact age is required");
+      }
+      const heightError = validateHeight({
+        unit: data.heightUnit || "cm",
+        cm: data.heightCm,
+        ft: data.heightFt,
+        inches: data.heightIn,
+      });
+      if (heightError) {
+        warnings.push(heightError);
+      }
       requireText(warnings, data.hkidNumber, "HKID Number");
       requireText(warnings, data.photoUrl, "Profile photo");
       requireSelection(

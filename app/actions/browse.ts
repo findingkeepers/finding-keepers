@@ -41,7 +41,9 @@ export type BrowsableProfileSummary = {
   short_id: string;
   photo_url: string | null;
   photoIsBlurred?: boolean;
+  age?: string;
   ageRange?: string;
+  height?: string;
   occupation?: string;
   education?: string;
   ethnicBackground?: string;

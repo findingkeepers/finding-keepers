@@ -2,6 +2,7 @@ const BROWSE_ALWAYS_HIDDEN_FIELDS = new Set([
   "hkidNumber",
   "waliHKID",
   "waliAddress",
+  "weight",
 ]);
 
 const WALI_CONTACT_FIELDS = new Set([
@@ -35,7 +36,9 @@ export function redactCvDataForBrowse(
 }
 
 export type BrowseListFields = {
+  age?: string;
   ageRange?: string;
+  height?: string;
   occupation?: string;
   education?: string;
   ethnicBackground?: string;
@@ -48,7 +51,9 @@ export function pickBrowseListData(
   const redacted = redactCvDataForBrowse(data);
 
   return {
+    age: redacted.age,
     ageRange: redacted.ageRange,
+    height: redacted.height,
     occupation: redacted.occupation,
     education: redacted.education,
     ethnicBackground: redacted.ethnicBackground,

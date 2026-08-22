@@ -153,6 +153,30 @@ export function VerificationSection({
                     required
                   />
                 </div>
+                <div className="rounded-2xl border border-fk-gold/40 bg-fk-cream/50 p-5 shadow-sm">
+                  <p className="fk-eyebrow text-[10px] text-fk-plum">Verification fee</p>
+                  <p className="mt-1 font-heading text-3xl font-medium text-fk-plum">
+                    HK$500
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-fk-body">
+                    Please transfer the verification fee, then upload your payment proof below.
+                  </p>
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                      <dt className="w-36 shrink-0 font-medium text-fk-plum">Bank Name</dt>
+                      <dd>HSBC</dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                      <dt className="w-36 shrink-0 font-medium text-fk-plum">Account No.</dt>
+                      <dd className="font-mono tracking-wide">582-668919-838</dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                      <dt className="w-36 shrink-0 font-medium text-fk-plum">Account Name</dt>
+                      <dd>Connect Institute Limited</dd>
+                    </div>
+                  </dl>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="payment-file">Upload Payment Proof</Label>
                   <FilePicker

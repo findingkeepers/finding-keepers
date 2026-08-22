@@ -72,17 +72,20 @@ export const CVPdf = ({ data }: CVPdfProps) => (
       <Text style={styles.label}>Gender:</Text>
       <Text style={styles.value}>{data.gender}</Text>
 
-      <Text style={styles.label}>Age Range:</Text>
-      <Text style={styles.value}>{data.ageRange}</Text>
+      <Text style={styles.label}>Age:</Text>
+      <Text style={styles.value}>
+        {data.age
+          ? String(data.age).includes("year")
+            ? data.age
+            : `${data.age} years`
+          : data.ageRange}
+      </Text>
 
       <Text style={styles.label}>HKID Number:</Text>
       <Text style={styles.value}>{data.hkidNumber}</Text>
 
       <Text style={styles.label}>Height:</Text>
       <Text style={styles.value}>{data.height}</Text>
-
-      <Text style={styles.label}>Weight:</Text>
-      <Text style={styles.value}>{data.weight}</Text>
 
       {/* Step 2 */}
       <Text style={styles.sectionTitle}>Personality & Individualism</Text>

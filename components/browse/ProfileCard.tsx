@@ -8,7 +8,9 @@ import { cn } from "@/lib/utils";
 
 type ProfileCardProps = {
   shortId: string;
+  age?: string;
   ageRange?: string;
+  height?: string;
   occupation?: string;
   education?: string;
   photoUrl?: string | null;
@@ -19,7 +21,9 @@ type ProfileCardProps = {
 
 export function ProfileCard({
   shortId,
+  age,
   ageRange,
+  height,
   occupation,
   education,
   photoUrl,
@@ -74,8 +78,16 @@ export function ProfileCard({
 
           <div className="mb-5 space-y-1.5 text-sm text-muted-foreground">
             <p>
-              <span className="font-medium text-fk-plum">Age Range:</span>{" "}
-              {ageRange || "N/A"}
+              <span className="font-medium text-fk-plum">Age:</span>{" "}
+              {age
+                ? age.includes("year")
+                  ? age
+                  : `${age} years`
+                : ageRange || "N/A"}
+            </p>
+            <p>
+              <span className="font-medium text-fk-plum">Height:</span>{" "}
+              {height || "N/A"}
             </p>
             <p>
               <span className="font-medium text-fk-plum">Occupation:</span>{" "}
