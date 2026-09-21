@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,9 @@ export function ProfileCard({
   onView,
   index = 0,
 }: ProfileCardProps) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = Boolean(photoUrl) && !photoFailed;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -39,11 +43,12 @@ export function ProfileCard({
       whileHover={{ y: -4 }}
     >
       <Card className="overflow-hidden py-0 transition-shadow duration-300 hover:shadow-md">
-        {photoUrl ? (
+        {showPhoto ? (
           <div className="relative h-56 w-full overflow-hidden bg-fk-bg-top">
             <img
-              src={photoUrl}
+              src={photoUrl!}
               alt="Profile"
+              onError={() => setPhotoFailed(true)}
               className={cn(
                 "h-full w-full object-cover",
                 photoIsBlurred && "scale-125 blur-2xl"

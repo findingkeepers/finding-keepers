@@ -17,6 +17,7 @@ import {
   type NonPrVerificationForm,
 } from "@/lib/non-pr-verification";
 import { createBlurredImageBlob } from "@/lib/create-blurred-image";
+import { normalizeProfilePhotoFile } from "@/lib/normalize-profile-photo";
 import { MAX_PROFILE_PHOTO_BYTES } from "@/lib/cv-constants";
 
 export default function Dashboard() {
@@ -208,12 +209,16 @@ export default function Dashboard() {
       const stamp = Date.now();
       const profilePhotoPath = `${user.id}/verification_${stamp}.jpg`;
       const profilePhotoBlurPath = `${user.id}/verification_${stamp}_blur.jpg`;
-      const blurredProfilePhoto = await createBlurredImageBlob(profilePhotoFile);
+      const normalizedProfilePhoto =
+        await normalizeProfilePhotoFile(profilePhotoFile);
+      const blurredProfilePhoto = await createBlurredImageBlob(
+        normalizedProfilePhoto
+      );
 
       const { error: profilePhotoError } = await supabase.storage
         .from("profile-photos")
-        .upload(profilePhotoPath, profilePhotoFile, {
-          contentType: profilePhotoFile.type || "image/jpeg",
+        .upload(profilePhotoPath, normalizedProfilePhoto, {
+          contentType: "image/jpeg",
           upsert: false,
         });
       if (profilePhotoError) throw profilePhotoError;

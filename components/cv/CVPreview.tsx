@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { User } from "lucide-react";
 import { CVField } from "@/components/cv/CVSectionCard";
 import { BrowseProfileSections } from "@/components/cv/BrowseProfileSections";
@@ -21,6 +22,7 @@ export function CVPreview({
   photoUrl,
   intro = DEFAULT_INTRO,
 }: CVPreviewProps) {
+  const [photoFailed, setPhotoFailed] = useState(false);
   const browseData = redactCvDataForBrowse(data, {
     showWali: data.showWaliOnProfile === "yes",
   });
@@ -35,10 +37,11 @@ export function CVPreview({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex justify-center lg:col-span-1">
-          {photoUrl ? (
+          {photoUrl && !photoFailed ? (
             <img
               src={photoUrl}
               alt="Profile preview"
+              onError={() => setPhotoFailed(true)}
               className="aspect-square w-full max-w-xs rounded-2xl object-cover shadow-sm"
             />
           ) : (

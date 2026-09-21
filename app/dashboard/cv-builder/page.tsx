@@ -27,6 +27,10 @@ import {
   getProfilePhotoStoragePath,
 } from '@/lib/profile-photo';
 import { createBlurredImageBlob } from '@/lib/create-blurred-image';
+import {
+  normalizeProfilePhotoFile,
+  PROFILE_PHOTO_ACCEPT,
+} from '@/lib/normalize-profile-photo';
 import { supabase } from '@/lib/supabase';
 import { profileGenderToCVGender } from '@/lib/gender';
 import { formatApplicantAge, getAgeFromDateOfBirth } from '@/lib/age';
@@ -371,32 +375,37 @@ export default function CVBuilder() {
     }
   };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
 
     if (!file) return;
 
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error("Please upload a JPG, PNG, or WebP image");
-      return;
-    }
+    try {
+      const normalized = await normalizeProfilePhotoFile(file);
 
-    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
-      toast.error("Profile photo must be 2 MB or smaller");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPhotoCropSrc(reader.result);
+      if (normalized.size > MAX_PROFILE_PHOTO_BYTES) {
+        toast.error("Profile photo must be 2 MB or smaller");
+        return;
       }
-    };
-    reader.onerror = () => {
-      toast.error("Could not read the selected photo");
-    };
-    reader.readAsDataURL(file);
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setPhotoCropSrc(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        toast.error("Could not read the selected photo");
+      };
+      reader.readAsDataURL(normalized);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Please upload a JPG, PNG, or WebP image"
+      );
+    }
   };
 
   const handleCroppedPhoto = async (file: File) => {
@@ -761,13 +770,13 @@ export default function CVBuilder() {
         </div>
         <FilePicker
           id="cv-profile-photo"
-          accept="image/jpeg,image/png,image/webp"
+          accept={PROFILE_PHOTO_ACCEPT}
           buttonLabel="Browse photos"
           emptyLabel="No photo selected"
           onChange={handlePhotoSelect}
         />
         <p className="text-xs text-muted-foreground">
-          After selecting a photo, you can crop it before upload.
+          After selecting a photo, you can crop it before upload. Use JPG, PNG, or WebP (not HEIC/Live Photos).
         </p>
       </div>
       {(photoPreviewUrl || formData.photoUrl) && (
@@ -776,6 +785,7 @@ export default function CVBuilder() {
             <img
               src={photoPreviewUrl}
               alt="Uploaded profile preview"
+              onError={() => setPhotoPreviewUrl('')}
               className="aspect-square w-full max-w-[180px] rounded-xl object-cover shadow-sm"
             />
           )}

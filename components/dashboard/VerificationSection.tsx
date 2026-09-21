@@ -203,7 +203,7 @@ export function VerificationSection({
                     onChange={(e) =>
                       onProfilePhotoFileChange(e.target.files?.[0] || null)
                     }
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                     buttonLabel="Browse photos"
                     emptyLabel="No profile photo chosen"
                     required

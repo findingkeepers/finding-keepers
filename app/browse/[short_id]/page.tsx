@@ -55,6 +55,7 @@ export default function ViewProfilePage() {
   const [pairMatchStatus, setPairMatchStatus] = useState<string | null>(null);
   const [pendingExpiryHint, setPendingExpiryHint] = useState<string | null>(null);
   const [confirmInterestOpen, setConfirmInterestOpen] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   useEffect(() => {
     const fetchCV = async () => {
@@ -356,11 +357,12 @@ export default function ViewProfilePage() {
       <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="overflow-hidden py-0 lg:col-span-1">
           <CardContent className="p-6">
-            {cv.photo_url ? (
+            {cv.photo_url && !photoFailed ? (
               <div className="relative mb-4 aspect-square w-full overflow-hidden rounded-xl">
                 <img
                   src={cv.photo_url}
                   alt="Profile"
+                  onError={() => setPhotoFailed(true)}
                   className={
                     cv.photoIsBlurred
                       ? "h-full w-full scale-125 object-cover blur-2xl"

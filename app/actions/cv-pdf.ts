@@ -35,8 +35,18 @@ async function resolvePhotoForPdf(
   }
 
   const buffer = Buffer.from(await data.arrayBuffer());
-  const mime = data.type || "image/jpeg";
-  return `data:${mime};base64,${buffer.toString("base64")}`;
+  const mime = (data.type || "image/jpeg").toLowerCase();
+  if (
+    mime.includes("heic") ||
+    mime.includes("heif") ||
+    mime.includes("avif") ||
+    mime.includes("tiff")
+  ) {
+    return null;
+  }
+
+  const safeMime = mime.startsWith("image/") ? mime : "image/jpeg";
+  return `data:${safeMime};base64,${buffer.toString("base64")}`;
 }
 
 export async function generateCvPdfDownload({
@@ -78,14 +88,16 @@ export async function generateCvPdfDownload({
 
   const embeddedPhoto = await resolvePhotoForPdf(photoUrl);
 
+  const pdfData = {
+    ...data,
+    shortID: data.shortID || shortId,
+    photoUrl: embeddedPhoto || "",
+  };
+
   try {
     const buffer = await renderToBuffer(
       React.createElement(CVPdf, {
-        data: {
-          ...data,
-          shortID: data.shortID || shortId,
-          photoUrl: embeddedPhoto || "",
-        },
+        data: pdfData,
       }) as Parameters<typeof renderToBuffer>[0]
     );
 
@@ -97,6 +109,26 @@ export async function generateCvPdfDownload({
     };
   } catch (error) {
     console.error("PDF generation error:", error);
+
+    if (embeddedPhoto) {
+      try {
+        const buffer = await renderToBuffer(
+          React.createElement(CVPdf, {
+            data: { ...pdfData, photoUrl: "" },
+          }) as Parameters<typeof renderToBuffer>[0]
+        );
+
+        return {
+          ok: true as const,
+          pdfBase64: Buffer.from(buffer).toString("base64"),
+          filename: `Finding_Keepers_CV_${shortId}.pdf`,
+          hasPhoto: false,
+        };
+      } catch (retryError) {
+        console.error("PDF generation retry error:", retryError);
+      }
+    }
+
     return { ok: false as const, message: "Failed to generate PDF" };
   }
 }
