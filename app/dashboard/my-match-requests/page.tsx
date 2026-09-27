@@ -29,6 +29,7 @@ import {
   SELECTION_WINDOW_HOURS,
 } from '@/lib/match-status';
 import { toast } from 'sonner';
+import { InterestDecisionDialog } from '@/components/match/InterestDecisionDialog';
 import { showMatchResultToast } from '@/lib/match-notifications';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +56,10 @@ export default function MyMatchRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('received');
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [decisionConfirm, setDecisionConfirm] = useState<{
+    requestId: string;
+    decision: 'approve' | 'reject';
+  } | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const { onMenuClick } = useDashboardMenu();
 
@@ -134,6 +139,7 @@ export default function MyMatchRequestsPage() {
       const result = await response.json();
 
       if (result.success) {
+        setDecisionConfirm(null);
         showMatchResultToast(
           result.message,
           decision === 'approve'
@@ -293,7 +299,12 @@ export default function MyMatchRequestsPage() {
                             size="sm"
                             className="rounded-lg"
                             disabled={respondingId === req.id}
-                            onClick={() => handleRespond(req.id, 'approve')}
+                            onClick={() =>
+                              setDecisionConfirm({
+                                requestId: req.id,
+                                decision: 'approve',
+                              })
+                            }
                           >
                             Interested
                           </Button>
@@ -302,7 +313,12 @@ export default function MyMatchRequestsPage() {
                             size="sm"
                             className="rounded-lg"
                             disabled={respondingId === req.id}
-                            onClick={() => handleRespond(req.id, 'reject')}
+                            onClick={() =>
+                              setDecisionConfirm({
+                                requestId: req.id,
+                                decision: 'reject',
+                              })
+                            }
                           >
                             Not interested
                           </Button>
@@ -346,6 +362,21 @@ export default function MyMatchRequestsPage() {
           </table>
         </DataTable>
       )}
+
+      <InterestDecisionDialog
+        open={Boolean(decisionConfirm)}
+        decision={decisionConfirm?.decision ?? null}
+        confirming={Boolean(respondingId)}
+        onCancel={() => setDecisionConfirm(null)}
+        onConfirm={() => {
+          if (decisionConfirm) {
+            void handleRespond(
+              decisionConfirm.requestId,
+              decisionConfirm.decision
+            );
+          }
+        }}
+      />
     </div>
   );
 }

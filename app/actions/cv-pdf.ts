@@ -69,7 +69,7 @@ export async function generateCvPdfDownload({
 
   const { data: cv } = await supabase
     .from("cvs")
-    .select("user_id")
+    .select("user_id, photo_url")
     .eq("short_id", shortId)
     .maybeSingle();
 
@@ -86,7 +86,10 @@ export async function generateCvPdfDownload({
     return { ok: false as const, message: "Not allowed to download this CV" };
   }
 
-  const embeddedPhoto = await resolvePhotoForPdf(photoUrl);
+  const embeddedPhoto =
+    (await resolvePhotoForPdf(photoUrl)) ||
+    (await resolvePhotoForPdf(data.photoUrl)) ||
+    (await resolvePhotoForPdf(cv?.photo_url));
 
   const pdfData = {
     ...data,

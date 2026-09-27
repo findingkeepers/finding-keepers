@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { CVField } from '@/components/cv/CVSectionCard';
 import { BrowseProfileSections } from '@/components/cv/BrowseProfileSections';
 import { toast } from 'sonner';
+import { InterestDecisionDialog } from '@/components/match/InterestDecisionDialog';
 import { getBrowsableProfile } from '@/app/actions/browse';
 import { expireStaleMatchRequests, requestMatch } from '@/app/actions/match';
 import { showMatchResultToast } from '@/lib/match-notifications';
@@ -56,6 +57,7 @@ export default function ViewProfilePage() {
   const [pendingExpiryHint, setPendingExpiryHint] = useState<string | null>(null);
   const [confirmInterestOpen, setConfirmInterestOpen] = useState(false);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [decisionConfirm, setDecisionConfirm] = useState<'approve' | 'reject' | null>(null);
 
   useEffect(() => {
     const fetchCV = async () => {
@@ -233,6 +235,7 @@ export default function ViewProfilePage() {
           result.message,
           'Match request updated successfully.'
         );
+        setDecisionConfirm(null);
         setPendingIncomingRequestId(null);
         if (decision === 'reject') {
           setMatchBlockedReason(
@@ -403,7 +406,7 @@ export default function ViewProfilePage() {
                         variant="premium"
                         className="h-11 rounded-xl"
                         disabled={responding}
-                        onClick={() => handleRespond('approve')}
+                        onClick={() => setDecisionConfirm('approve')}
                       >
                         Interested
                       </Button>
@@ -411,7 +414,7 @@ export default function ViewProfilePage() {
                         variant="outline"
                         className="h-11 rounded-xl"
                         disabled={responding}
-                        onClick={() => handleRespond('reject')}
+                        onClick={() => setDecisionConfirm('reject')}
                       >
                         Not interested
                       </Button>
@@ -540,6 +543,18 @@ export default function ViewProfilePage() {
           </div>
         </div>
       )}
+
+      <InterestDecisionDialog
+        open={Boolean(decisionConfirm)}
+        decision={decisionConfirm}
+        confirming={responding}
+        onCancel={() => setDecisionConfirm(null)}
+        onConfirm={() => {
+          if (decisionConfirm) {
+            void handleRespond(decisionConfirm);
+          }
+        }}
+      />
     </div>
   );
 }
